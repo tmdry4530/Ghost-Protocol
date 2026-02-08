@@ -145,37 +145,43 @@ graph TB
 
 ### 필수 요구사항
 
-- Node.js >= 20
-- pnpm >= 9
-- Redis (로컬 또는 Docker)
-- Foundry (forge, cast, anvil)
+- **Node.js** >= 20
+- **pnpm** >= 9 — 설치: `npm install -g pnpm`
+- **Foundry** (forge, cast, anvil) — 설치: `curl -L https://foundry.paradigm.xyz | bash && foundryup`
+- **Redis** (선택, 매치 큐용) — `docker run -d -p 6379:6379 redis:7-alpine`
 
-### 설치 및 실행
+### 빠른 시작
 
 ```bash
 # 1. 저장소 클론
-git clone https://github.com/aspect-build/ghost-protocol.git
-cd ghost-protocol
+git clone https://github.com/tmdry4530/Ghost-Protocol.git
+cd Ghost-Protocol
 
 # 2. 의존성 설치
 pnpm install
 
 # 3. 환경 변수 설정
 cp .env.example .env
-# .env 파일을 편집하여 필요한 값 입력
+# 기본값으로 로컬 개발이 가능합니다 — 기본 테스트에는 수정 불필요.
+# 블록체인 기능을 사용하려면 ARENA_MANAGER_PRIVATE_KEY를 추가하세요 (테스트넷용 임의 64자 hex).
 
-# 4. 스마트 컨트랙트 컴파일
-cd packages/contracts && forge build && cd ../..
+# 4. Foundry 의존성 설치 및 컨트랙트 컴파일
+cd packages/contracts
+forge install
+forge build
+cd ../..
 
-# 5. 공유 패키지 빌드
-pnpm --filter @ghost-protocol/shared build
+# 5. 전체 패키지 빌드 (shared → backend → frontend)
+pnpm build
 
-# 6. 개발 서버 실행
+# 6. 개발 서버 실행 (프론트엔드 + 백엔드 동시)
 pnpm dev
 # Frontend: http://localhost:5173
 # Backend:  http://localhost:3001
 # WebSocket: ws://localhost:3001
 ```
+
+> **팁:** 브라우저에서 http://localhost:5173 을 열고 **SPACE** 키 또는 **START GAME** 버튼을 누르면 바로 서바이벌 모드를 플레이할 수 있습니다.
 
 ### 환경 변수
 
@@ -184,10 +190,12 @@ pnpm dev
 | 변수 | 설명 | 필수 |
 |------|------|------|
 | `MONAD_RPC_URL` | Monad 테스트넷 RPC URL | O |
-| `ARENA_MANAGER_PRIVATE_KEY` | 아레나 매니저 개인키 (서버 전용) | O |
-| `REDIS_URL` | Redis 접속 URL | O |
+| `ARENA_MANAGER_PRIVATE_KEY` | 아레나 매니저 개인키 (서버 전용) | X* |
+| `REDIS_URL` | Redis 접속 URL | X |
 | `CLAUDE_API_KEY` | Claude API 키 (Tier 4+ AI용) | X |
 | `PINATA_API_KEY` | Pinata IPFS API 키 | X |
+
+*로컬 개발에서는 블록체인 기능 없이도 동작합니다. 테스트넷/메인넷 컨트랙트 상호작용 시에만 필요합니다.
 
 ---
 

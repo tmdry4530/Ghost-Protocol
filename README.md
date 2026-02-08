@@ -145,37 +145,43 @@ graph TB
 
 ### Prerequisites
 
-- Node.js >= 20
-- pnpm >= 9
-- Redis (local or Docker)
-- Foundry (forge, cast, anvil)
+- **Node.js** >= 20
+- **pnpm** >= 9 — Install: `npm install -g pnpm`
+- **Foundry** (forge, cast, anvil) — Install: `curl -L https://foundry.paradigm.xyz | bash && foundryup`
+- **Redis** (optional, for match queue) — `docker run -d -p 6379:6379 redis:7-alpine`
 
-### Installation & Running
+### Quick Start
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/aspect-build/ghost-protocol.git
-cd ghost-protocol
+git clone https://github.com/tmdry4530/Ghost-Protocol.git
+cd Ghost-Protocol
 
 # 2. Install dependencies
 pnpm install
 
 # 3. Setup environment variables
 cp .env.example .env
-# Edit .env file and fill in required values
+# Default values work for local dev — no edits required for basic testing.
+# For blockchain features, add ARENA_MANAGER_PRIVATE_KEY (any 64-char hex for testnet).
 
-# 4. Compile smart contracts
-cd packages/contracts && forge build && cd ../..
+# 4. Install Foundry dependencies & compile contracts
+cd packages/contracts
+forge install
+forge build
+cd ../..
 
-# 5. Build shared packages
-pnpm --filter @ghost-protocol/shared build
+# 5. Build all packages (shared → backend → frontend)
+pnpm build
 
-# 6. Start development servers
+# 6. Start development servers (frontend + backend concurrently)
 pnpm dev
 # Frontend: http://localhost:5173
 # Backend:  http://localhost:3001
 # WebSocket: ws://localhost:3001
 ```
+
+> **Tip:** Open http://localhost:5173 in your browser, press **SPACE** or click **START GAME** to play Survival Mode immediately.
 
 ### Environment Variables
 
@@ -184,10 +190,12 @@ Refer to `.env.example` and configure the following values:
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `MONAD_RPC_URL` | Monad Testnet RPC URL | Yes |
-| `ARENA_MANAGER_PRIVATE_KEY` | Arena manager private key (server-only) | Yes |
-| `REDIS_URL` | Redis connection URL | Yes |
+| `ARENA_MANAGER_PRIVATE_KEY` | Arena manager private key (server-only) | No* |
+| `REDIS_URL` | Redis connection URL | No |
 | `CLAUDE_API_KEY` | Claude API key (for Tier 4+ AI) | No |
 | `PINATA_API_KEY` | Pinata IPFS API key | No |
+
+*For local development, blockchain features work without this key. Required only for testnet/mainnet contract interaction.
 
 ---
 
