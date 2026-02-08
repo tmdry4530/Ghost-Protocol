@@ -1,0 +1,32 @@
+{
+  "name": "@ghost-protocol/sdk",
+  "version": "0.1.0",
+  "description": "Ghost Protocol 에이전트 개발 키트 — 팩맨 AI 에이전트 SDK",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "dev": "tsc --project tsconfig.build.json --watch",
+    "test": "vitest run",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "ethers": "^6.16.0",
+    "@ghost-protocol/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.0",
+    "vitest": "^3.0.0"
+  },
+  "keywords": ["ghost-protocol", "pac-man", "ai-agent", "monad", "blockchain"],
+  "license": "MIT"
+}
