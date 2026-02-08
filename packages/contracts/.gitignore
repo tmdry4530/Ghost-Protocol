@@ -1,0 +1,9 @@
+# Foundry 빌드 산출물
+out/
+cache/
+
+# 라이브러리
+lib/
+
+# 환경 변수
+.env

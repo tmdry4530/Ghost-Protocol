@@ -1,0 +1,14 @@
+{
+  "name": "@ghost-protocol/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ghost Protocol 스마트 컨트랙트 — Foundry + Solidity",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test -vvv",
+    "lint": "forge fmt --check",
+    "format": "forge fmt",
+    "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url $MONAD_RPC_URL --broadcast",
+    "typecheck": "echo 'Solidity 타입 검사는 forge build에 포함됨'"
+  }
+}
