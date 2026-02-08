@@ -1,0 +1,36 @@
+# 빌드 아티팩트
+node_modules
+dist
+
+# Git 관련
+.git
+.gitignore
+
+# OMC 관련
+.omc
+.claude
+
+# CI/CD
+.github
+
+# 불필요한 패키지 (백엔드 이미지에 포함 안 함)
+packages/frontend
+packages/contracts
+packages/sdk
+
+# 문서
+docs
+*.md
+!package.json
+
+# 환경 변수 (.env.example은 제외)
+.env
+.env.local
+.env.production
+.env.development
+!.env.example
+
+# 설정 파일 (런타임에 불필요)
+.prettierrc
+eslint.config.mjs
+turbo.json.bak

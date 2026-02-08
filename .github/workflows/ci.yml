@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & TypeScript 검사
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm turbo run lint
+
+      - name: TypeScript 타입 검사
+        run: pnpm turbo run typecheck
+
+  test-backend:
+    name: 백엔드 테스트
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: shared 빌드
+        run: pnpm --filter @ghost-protocol/shared build
+
+      - name: 백엔드 테스트
+        run: pnpm --filter @ghost-protocol/backend test
+
+  test-contracts:
+    name: 스마트 컨트랙트 테스트
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Foundry 설치
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: 의존성 설치
+        working-directory: packages/contracts
+        run: forge install
+
+      - name: 컨트랙트 테스트
+        working-directory: packages/contracts
+        run: forge test -vvv
+
+  build-frontend:
+    name: 프론트엔드 빌드
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: 프론트엔드 빌드
+        run: pnpm turbo run build --filter=@ghost-protocol/frontend
+        env:
+          VITE_API_URL: https://api.ghost-protocol.example.com/api/v1
+          VITE_WS_URL: wss://api.ghost-protocol.example.com
+          VITE_MONAD_RPC_URL: https://testnet.monad.xyz/v1
+          VITE_GHOST_ARENA_ADDRESS: "0x0000000000000000000000000000000000000000"
+          VITE_WAGER_POOL_ADDRESS: "0x0000000000000000000000000000000000000000"
+          VITE_SURVIVAL_BET_ADDRESS: "0x0000000000000000000000000000000000000000"
