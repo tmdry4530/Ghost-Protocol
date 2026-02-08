@@ -1,0 +1,45 @@
+# 의존성
+node_modules/
+.pnpm-store/
+
+# 빌드 산출물
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Turbo
+.turbo/
+
+# 환경 변수
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Foundry
+packages/contracts/cache/
+packages/contracts/out/
+packages/contracts/lib/
+packages/contracts/broadcast/
+
+# 테스트
+coverage/
+
+# 로그
+*.log
+
+# OMC / bkit 도구 상태
+.omc/
+docs/.pdca-snapshots/
+docs/.bkit-memory.json
+lint-output.txt
