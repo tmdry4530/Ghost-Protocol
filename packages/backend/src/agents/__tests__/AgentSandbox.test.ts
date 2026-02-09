@@ -39,6 +39,7 @@ function createTestGameState(): GameState {
     powerActive: false,
     powerTimeRemaining: 0,
     fruitAvailable: null,
+    dying: false,
   };
 }
 

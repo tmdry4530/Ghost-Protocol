@@ -78,6 +78,7 @@ function createTestGameState(overrides?: Partial<GameState>): GameState {
     powerActive: false,
     powerTimeRemaining: 0,
     fruitAvailable: null,
+    dying: false,
     ...overrides,
   };
 }

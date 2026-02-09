@@ -14,6 +14,13 @@ export type {
   MatchCompleteCallback,
 } from './MatchScheduler.js';
 
+export { InMemoryMatchScheduler } from './InMemoryMatchScheduler.js';
+export type {
+  MatchJobData as InMemoryMatchJobData,
+  MatchJobResult as InMemoryMatchJobResult,
+  MatchCompleteCallback as InMemoryMatchCompleteCallback,
+} from './InMemoryMatchScheduler.js';
+
 export { BettingOrchestrator } from './BettingOrchestrator.js';
 export type { BettingOrchestratorConfig } from './BettingOrchestrator.js';
 

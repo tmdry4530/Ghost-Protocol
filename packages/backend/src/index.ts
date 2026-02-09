@@ -1,6 +1,6 @@
 /**
  * Ghost Protocol 메인 서버 진입점
- * Express HTTP 서버, Socket.io WebSocket, 게임 루프 매니저를 초기화하고 시작한다.
+ * Express HTTP 서버, Socket.io WebSocket, 게임 루프 매니저, 데모 토너먼트를 초기화하고 시작한다.
  */
 import express from 'express';
 import { createServer } from 'node:http';
@@ -12,6 +12,8 @@ import { loadEnv } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { GameLoopManager } from './game/GameLoopManager.js';
 import { SocketManager } from './websocket/SocketManager.js';
+import { createApiRouter, ApiStateStore } from './routes/api.js';
+import { DemoTournamentRunner } from './orchestrator/DemoTournamentRunner.js';
 
 /** 구조화된 로거 인스턴스 */
 const logger = pino({
@@ -44,9 +46,16 @@ function main(): void {
   app.use(cors({ origin: env.CORS_ORIGIN }));
   app.use(express.json());
 
-  // 게임 루프 매니저 & 소켓 매니저 초기화
+  // 핵심 매니저 초기화 (단일 인스턴스 공유)
   const gameLoopManager = new GameLoopManager();
   const socketManager = new SocketManager(io, gameLoopManager);
+
+  // API 상태 저장소 초기화
+  const stateStore = new ApiStateStore();
+  stateStore.registerDemoAgents();
+
+  // SocketManager에 상태 저장소 연결 (로비 참가 시 현재 상태 전송용)
+  socketManager.setStateStore(stateStore);
 
   // 상태 확인 엔드포인트
   app.get('/health', (_req, res) => {
@@ -55,54 +64,29 @@ function main(): void {
       timestamp: Date.now(),
       connections: socketManager.getConnectedCount(),
       activeSessions: gameLoopManager.getActiveSessions().length,
+      agents: stateStore.agents.size,
+      tournaments: stateStore.tournaments.size,
     });
   });
 
-  // API v1 루트
-  app.get('/api/v1', (_req, res) => {
-    res.json({
-      name: 'Ghost Protocol API',
-      version: '0.1.0',
-      description: 'AI 에이전트 팩맨 아레나 API',
-    });
-  });
-
-  // 서바이벌 세션 생성
-  app.post('/api/v1/survival', (_req, res) => {
-    const sessionId = `surv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const seed = Math.floor(Math.random() * 0xFFFFFFFF);
-
-    gameLoopManager.createSession({
-      sessionId: `survival:${sessionId}`,
-      sessionType: 'survival',
-      variant: 'classic',
-      seed,
-      difficulty: 1,
-      agents: ['player'],
-    });
-
-    gameLoopManager.startSession(`survival:${sessionId}`);
-
-    res.status(201).json({
-      sessionId,
-      roomId: `survival:${sessionId}`,
-      seed,
-    });
-  });
-
-  // 활성 세션 조회
-  app.get('/api/v1/sessions', (_req, res) => {
-    res.json({
-      sessions: gameLoopManager.getActiveSessions(),
-    });
-  });
+  // API v1 라우터 마운트
+  const apiRouter = createApiRouter(gameLoopManager, stateStore);
+  app.use('/api/v1', apiRouter);
 
   // 에러 핸들러 (반드시 마지막에 등록)
   app.use(errorHandler);
 
+  // 데모 토너먼트 러너 초기화
+  const demoRunner = new DemoTournamentRunner(
+    gameLoopManager,
+    socketManager,
+    stateStore,
+  );
+
   // Graceful Shutdown
   const shutdown = () => {
     logger.info('서버 종료 중...');
+    demoRunner.stop();
     socketManager.shutdown();
     httpServer.close(() => {
       logger.info('서버 종료 완료');
@@ -117,6 +101,11 @@ function main(): void {
   httpServer.listen(env.PORT, () => {
     logger.info(`Ghost Protocol 서버 시작: http://localhost:${env.PORT.toString()}`);
     logger.info(`WebSocket 대기 중: ws://localhost:${env.PORT.toString()}`);
+    logger.info(`API: http://localhost:${env.PORT.toString()}/api/v1`);
+    logger.info(`에이전트 수: ${stateStore.agents.size.toString()}`);
+
+    // 서버 시작 후 데모 토너먼트 자동 실행
+    demoRunner.start();
   });
 }
 

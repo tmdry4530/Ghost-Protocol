@@ -101,6 +101,16 @@ export class GameLoopManager {
     this.onRoundChange = callback;
   }
 
+  /** 현재 등록된 게임 오버 콜백 반환 */
+  getOnGameOver(): GameOverCallback | null {
+    return this.onGameOver;
+  }
+
+  /** 현재 등록된 게임 상태 콜백 반환 */
+  getOnGameState(): GameStateCallback | null {
+    return this.onGameState;
+  }
+
   /**
    * 새 게임 세션 생성
    * @param config 세션 설정 (ID, 타입, 미로, 시드, 난이도, 에이전트 목록)

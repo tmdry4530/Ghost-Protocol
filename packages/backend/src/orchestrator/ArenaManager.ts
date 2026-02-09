@@ -400,20 +400,36 @@ export class ArenaManager {
     logger.info({ tournamentId, champion }, '토너먼트 종료 및 상금 분배 완료');
   }
 
+  /** 내부 시드 카운터 (결정론적 난수 생성용) */
+  private seedCounter = 0;
+
   /**
-   * 랜덤 미로 변형 선택
+   * 간단한 결정론적 해시 (시드 기반)
+   * @param seed 시드 값
+   */
+  private deterministicHash(seed: number): number {
+    let h = seed | 0;
+    h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+    h = Math.imul(h ^ (h >>> 13), 0x45d9f3b);
+    h = (h ^ (h >>> 16)) >>> 0;
+    return h;
+  }
+
+  /**
+   * 결정론적 미로 변형 선택 (타임스탬프 + 카운터 기반)
    */
   private selectRandomVariant(): MazeVariant {
     const variants: MazeVariant[] = ['classic', 'labyrinth', 'speedway', 'fortress', 'random'];
-    const selected = variants[Math.floor(Math.random() * variants.length)];
+    const hash = this.deterministicHash(Date.now() + this.seedCounter++);
+    const selected = variants[hash % variants.length];
     return selected ?? 'classic';
   }
 
   /**
-   * 게임 시드 생성 (블록 해시 기반 - 실제로는 최신 블록 해시 사용)
+   * 게임 시드 생성 (타임스탬프 + 카운터 기반 결정론적)
    */
   private generateSeed(): number {
-    return Math.floor(Math.random() * 1_000_000);
+    return this.deterministicHash(Date.now() + this.seedCounter++);
   }
 
   /**

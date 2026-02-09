@@ -39,6 +39,7 @@ import { MazeManager } from './MazeManager.js';
 import { PhysicsEngine } from './PhysicsEngine.js';
 import type { PhysicsEntity } from './PhysicsEngine.js';
 import { keccak256, toUtf8Bytes } from 'ethers';
+import { GhostAIController } from '../ai/GhostAIController.js';
 
 // ===== xorshift128+ 의사 난수 생성기 =====
 
@@ -176,6 +177,9 @@ export class GameStateManager {
   // --- 상태 해시 ---
   private _stateHash = '';
 
+  /** 고스트 AI 컨트롤러 */
+  private aiController: GhostAIController;
+
   /**
    * 게임 상태 관리자 생성
    * @param config 미로 변형, 시드, 난이도 설정
@@ -191,6 +195,8 @@ export class GameStateManager {
       throw new Error(`유효하지 않은 난이도 등급: ${String(config.difficulty)}`);
     }
     this.tierConfig = tc;
+
+    this.aiController = new GhostAIController(1);
 
     this.initializeRound();
   }
@@ -293,6 +299,7 @@ export class GameStateManager {
       powerActive: this.powerActive,
       powerTimeRemaining: this.powerTimer,
       fruitAvailable: this.fruitInfo,
+      dying: this.lives <= 0,
     };
   }
 
@@ -330,6 +337,9 @@ export class GameStateManager {
     this.fruitTimer = 0;
     this.pelletsEaten = 0;
     this._stateHash = '';
+
+    // AI 컨트롤러 초기화
+    this.aiController = new GhostAIController(1);
 
     // RNG를 원래 시드로 재초기화
     this.rng = new Xorshift128Plus(this.config.seed);
@@ -382,6 +392,9 @@ export class GameStateManager {
     this.powerActive = false;
     this.powerTimer = 0;
     this.ghostEatCombo = 0;
+
+    // AI 컨트롤러 라운드 리셋
+    this.aiController.reset(this.round);
   }
 
   /**
@@ -532,34 +545,91 @@ export class GameStateManager {
 
   /**
    * 모든 고스트의 AI 및 이동 갱신
-   * 기본 랜덤 순찰: 타일 경계에서 유효한 임의 방향 선택
+   * GhostAIController를 통해 성격 기반 방향 결정
    */
   private updateGhosts(): void {
+    // AI 컨트롤러에서 방향 계산
+    const ghostStates = this.ghosts.map((g) => ({
+      id: g.id,
+      x: g.entity.tileX,
+      y: g.entity.tileY,
+      mode: g.mode,
+    }));
+
+    const pacmanState = {
+      x: this.pacmanEntity.tileX,
+      y: this.pacmanEntity.tileY,
+      direction: this.pacmanEntity.direction,
+      score: this.score,
+      lives: this.lives,
+    };
+
+    // 남은 펠릿 수 계산
+    let remainingPellets = 0;
+    for (const row of this.mutablePellets) {
+      for (const cell of row) {
+        if (cell) remainingPellets++;
+      }
+    }
+    remainingPellets += this.mutablePowerPellets.length;
+
+    const directions = this.aiController.getGhostDirections(
+      ghostStates,
+      pacmanState,
+      this.maze,
+      remainingPellets,
+      () => this.rng.next(),
+    );
+
     for (const ghost of this.ghosts) {
       if (ghost.mode === 'eaten') {
         this.updateEatenGhost(ghost);
       } else {
-        this.updateActiveGhost(ghost);
+        this.updateActiveGhostWithAI(ghost, directions);
       }
     }
   }
 
   /**
-   * 활성 고스트 (추적/산개/겁먹음) AI 갱신
-   * 타일 경계 진입 시 랜덤 방향 선택 (역방향 제외)
+   * AI 방향을 사용한 활성 고스트 갱신
+   * 타일 경계 진입 시 AI 컨트롤러가 결정한 방향 적용
    */
-  private updateActiveGhost(ghost: InternalGhostState): void {
+  private updateActiveGhostWithAI(
+    ghost: InternalGhostState,
+    directions: Map<GhostId, Direction | null>,
+  ): void {
     const { entity } = ghost;
 
     // 타일 경계에 있을 때 (progress ≈ 0) 새 방향 결정
     if (entity.progress < 0.01) {
-      const validDirs = this.getValidGhostDirections(entity);
-      if (validDirs.length > 0) {
-        const chosenIndex = this.rng.nextInt(0, validDirs.length - 1);
-        const chosen = validDirs[chosenIndex];
-        if (chosen !== undefined) {
-          entity.direction = chosen;
+      const aiDirection = directions.get(ghost.id);
+      if (aiDirection !== null && aiDirection !== undefined) {
+        // AI가 유효한 방향을 제시했는지 검증
+        if (this.physics.canMove(entity.tileX, entity.tileY, aiDirection, this.maze)) {
+          entity.direction = aiDirection;
           entity.nextDirection = null;
+        } else {
+          // AI 방향이 유효하지 않으면 기존 방향 유지 또는 유효 방향 선택
+          const validDirs = this.getValidGhostDirections(entity);
+          if (validDirs.length > 0) {
+            const chosenIndex = this.rng.nextInt(0, validDirs.length - 1);
+            const chosen = validDirs[chosenIndex];
+            if (chosen !== undefined) {
+              entity.direction = chosen;
+              entity.nextDirection = null;
+            }
+          }
+        }
+      } else {
+        // AI가 null을 반환하면 기존 랜덤 로직 폴백
+        const validDirs = this.getValidGhostDirections(entity);
+        if (validDirs.length > 0) {
+          const chosenIndex = this.rng.nextInt(0, validDirs.length - 1);
+          const chosen = validDirs[chosenIndex];
+          if (chosen !== undefined) {
+            entity.direction = chosen;
+            entity.nextDirection = null;
+          }
         }
       }
     }

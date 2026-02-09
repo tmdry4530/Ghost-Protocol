@@ -54,8 +54,9 @@ export class GhostAIController {
     // 조정 전략 생성
     this.coordinationStrategy = createCoordinationStrategy();
 
-    // 난이도 매니저 생성
-    const initialTier = this.getTierForRound(initialRound);
+    // 난이도 매니저 생성 (라운드→티어 변환을 인라인으로 수행)
+    const initialTier: DifficultyTier =
+      initialRound <= 2 ? 1 : initialRound <= 4 ? 2 : initialRound <= 6 ? 3 : initialRound <= 8 ? 4 : 5;
     this.difficultyManager = new DifficultyManager(initialTier);
   }
 
