@@ -22,9 +22,9 @@ export function BracketView({ bracketSize, rounds }: BracketViewProps) {
   const gridColumns = bracketSize === 8 ? 4 : 5;
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto overflow-y-visible px-2 py-2">
       <div
-        className="min-w-max gap-8 py-8"
+        className="min-w-max gap-8 py-6"
         style={{
           display: 'grid',
           gridTemplateColumns: `repeat(${String(gridColumns)}, minmax(180px, 1fr))`,

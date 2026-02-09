@@ -2,15 +2,15 @@ import type { AgentAddress } from '@ghost-protocol/shared';
 import { useGameStore } from '../../stores/gameStore.js';
 
 interface MatchStatsOverlayProps {
-  /** Agent A 정보 */
+  /** Agent A info */
   agentA: { address: AgentAddress; name: string; score: number };
-  /** Agent B 정보 */
+  /** Agent B info */
   agentB: { address: AgentAddress; name: string; score: number };
 }
 
 /**
- * 매치 통계 오버레이
- * 게임 캔버스 위에 반투명 바로 표시되는 실시간 매치 정보
+ * Match stats overlay
+ * Real-time match info displayed as a semi-transparent bar over the game canvas
  */
 export function MatchStatsOverlay({ agentA, agentB }: MatchStatsOverlayProps) {
   const gameState = useGameStore((s) => s.gameState);
@@ -19,7 +19,7 @@ export function MatchStatsOverlay({ agentA, agentB }: MatchStatsOverlayProps) {
 
   return (
     <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
-      {/* 반투명 다크 배경 바 */}
+      {/* Semi-transparent dark background bar */}
       <div
         className="flex items-center justify-between px-6 py-3"
         style={{
@@ -27,7 +27,7 @@ export function MatchStatsOverlay({ agentA, agentB }: MatchStatsOverlayProps) {
           fontFamily: "'Courier New', monospace",
         }}
       >
-        {/* Agent A 정보 */}
+        {/* Agent A info */}
         <div className="flex items-center gap-3">
           <div className="w-3 h-3 rounded-full bg-ghost-blue animate-pulse" />
           <div>
@@ -36,16 +36,16 @@ export function MatchStatsOverlay({ agentA, agentB }: MatchStatsOverlayProps) {
           </div>
         </div>
 
-        {/* 중앙: VS + 라운드 + 틱 */}
+        {/* Center: VS + Round + Tick */}
         <div className="text-center">
           <div className="text-sm font-bold text-ghost-violet mb-1">VS</div>
           <div className="flex items-center gap-4 text-xs text-gray-400">
-            <span>라운드 {gameState.round}</span>
-            <span>틱 {gameState.tick}</span>
+            <span>Round {gameState.round}</span>
+            <span>Tick {gameState.tick}</span>
           </div>
         </div>
 
-        {/* Agent B 정보 */}
+        {/* Agent B info */}
         <div className="flex items-center gap-3">
           <div>
             <div className="text-xs text-gray-400 uppercase tracking-wider text-right">
@@ -59,7 +59,7 @@ export function MatchStatsOverlay({ agentA, agentB }: MatchStatsOverlayProps) {
         </div>
       </div>
 
-      {/* 파워업 인디케이터 */}
+      {/* Power-up indicator */}
       {gameState.powerActive && (
         <div className="absolute top-full left-0 right-0 flex items-center justify-center py-2">
           <div
@@ -71,7 +71,7 @@ export function MatchStatsOverlay({ agentA, agentB }: MatchStatsOverlayProps) {
               boxShadow: '0 0 10px rgba(34, 211, 238, 0.5)',
             }}
           >
-            파워업 활성 ({Math.ceil(gameState.powerTimeRemaining / 60)}초)
+            Power-Up Active ({Math.ceil(gameState.powerTimeRemaining / 60)}s)
           </div>
         </div>
       )}

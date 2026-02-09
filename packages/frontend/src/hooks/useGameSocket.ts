@@ -62,6 +62,7 @@ function frameToGameState(frame: GameStateFrame): GameState {
     powerActive: frame.powerActive,
     powerTimeRemaining: frame.powerTimeRemaining,
     fruitAvailable: null,
+    dying: false,
   };
 }
 

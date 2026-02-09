@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
-/** 에이전트 주소 타입 */
+/** Agent address type */
 type AgentAddress = string & { readonly __brand: 'AgentAddress' };
 
-/** 에이전트 정보 인터페이스 */
+/** Agent info interface */
 interface AgentInfo {
   readonly address: AgentAddress;
   readonly owner: string;
@@ -15,13 +15,13 @@ interface AgentInfo {
   readonly elo: number;
 }
 
-/** 정렬 키 타입 */
+/** Sort key type */
 type SortKey = 'reputation' | 'elo' | 'winRate' | 'wins';
 
-/** 정렬 방향 타입 */
+/** Sort direction type */
 type SortDirection = 'asc' | 'desc';
 
-/** 순위 뱃지 컴포넌트 */
+/** Rank badge component */
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) {
     return (
@@ -47,66 +47,21 @@ function RankBadge({ rank }: { rank: number }) {
   return <span className="px-3 py-1 text-sm font-semibold text-gray-400">{rank}</span>;
 }
 
-/** 승률 색상 계산 */
+/** Win rate color calculation */
 function getWinRateColor(winRate: number): string {
   if (winRate >= 60) return 'text-green-400';
   if (winRate >= 40) return 'text-yellow-400';
   return 'text-red-400';
 }
 
-/** 모의 에이전트 데이터 생성 */
-function generateMockAgents(): AgentInfo[] {
-  const names = [
-    'AlphaGhost',
-    'NeonChaser',
-    'QuantumPac',
-    'ShadowRunner',
-    'CyberSpectre',
-    'VoidHunter',
-    'PhantomByte',
-    'GhostWhisperer',
-    'ArcaneSeeker',
-    'NexusWraith',
-    'EchoPhantom',
-    'BlitzGhost',
-    'VortexStalker',
-    'MysticPacman',
-    'ThunderGhost',
-    'FrostSpirit',
-    'BlazeSpectre',
-    'StormChaser',
-    'LunarGhost',
-    'SolarPhantom',
-  ];
-
-  return names.map((name, idx) => {
-    const elo = 2450 - idx * 50;
-    const wins = 156 - idx * 7;
-    const losses = 44 + idx * 3;
-    const reputation = 9800 - idx * 400;
-
-    return {
-      address:
-        `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}` as AgentAddress,
-      owner: `0x${Math.random().toString(16).slice(2, 42)}`,
-      name,
-      wins,
-      losses,
-      reputation,
-      active: Math.random() > 0.3,
-      elo,
-    };
-  });
-}
-
-/** 에이전트 순위 테이블 컴포넌트 */
+/** Agent ranking table component */
 export function AgentRankingTable() {
-  const [agents] = useState<AgentInfo[]>(generateMockAgents());
+  const [agents] = useState<AgentInfo[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('reputation');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [visibleCount, setVisibleCount] = useState(20);
 
-  /** 정렬 핸들러 */
+  /** Sort handler */
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -116,13 +71,13 @@ export function AgentRankingTable() {
     }
   };
 
-  /** 승률 계산 */
+  /** Win rate calculation */
   const getWinRate = (agent: AgentInfo) => {
     const total = agent.wins + agent.losses;
     return total > 0 ? (agent.wins / total) * 100 : 0;
   };
 
-  /** 정렬된 에이전트 목록 */
+  /** Sorted agent list */
   const sortedAgents = [...agents].sort((a, b) => {
     let comparison = 0;
 
@@ -146,14 +101,25 @@ export function AgentRankingTable() {
 
   const visibleAgents = sortedAgents.slice(0, visibleCount);
 
+  if (agents.length === 0) {
+    return (
+      <div className="flex min-h-[300px] flex-col items-center justify-center rounded-lg border border-arena-border bg-arena-card p-8 text-center">
+        <p className="text-lg font-semibold text-gray-400">No Agent Data</p>
+        <p className="mt-2 text-sm text-gray-500">
+          Agent rankings will appear here when agents are registered.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto rounded-lg bg-arena-card border border-arena-border">
         <table className="w-full">
           <thead>
             <tr className="border-b border-arena-border bg-arena-surface/50">
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">순위</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">이름</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Rank</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Name</th>
               <th
                 className="cursor-pointer px-4 py-3 text-left text-sm font-semibold text-gray-300 hover:text-ghost-neon"
                 onClick={() => { handleSort('elo'); }}
@@ -164,21 +130,21 @@ export function AgentRankingTable() {
                 className="cursor-pointer px-4 py-3 text-left text-sm font-semibold text-gray-300 hover:text-ghost-neon"
                 onClick={() => { handleSort('winRate'); }}
               >
-                승률 {sortKey === 'winRate' && (sortDirection === 'desc' ? '↓' : '↑')}
+                Win Rate {sortKey === 'winRate' && (sortDirection === 'desc' ? '↓' : '↑')}
               </th>
               <th
                 className="cursor-pointer px-4 py-3 text-left text-sm font-semibold text-gray-300 hover:text-ghost-neon"
                 onClick={() => { handleSort('wins'); }}
               >
-                승/패 {sortKey === 'wins' && (sortDirection === 'desc' ? '↓' : '↑')}
+                W/L {sortKey === 'wins' && (sortDirection === 'desc' ? '↓' : '↑')}
               </th>
               <th
                 className="cursor-pointer px-4 py-3 text-left text-sm font-semibold text-gray-300 hover:text-ghost-neon"
                 onClick={() => { handleSort('reputation'); }}
               >
-                평판 {sortKey === 'reputation' && (sortDirection === 'desc' ? '↓' : '↑')}
+                Reputation {sortKey === 'reputation' && (sortDirection === 'desc' ? '↓' : '↑')}
               </th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">상태</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -222,7 +188,7 @@ export function AgentRankingTable() {
                         }`}
                       />
                       <span className="text-sm text-gray-400">
-                        {agent.active ? '활성' : '비활성'}
+                        {agent.active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                   </td>
@@ -240,7 +206,7 @@ export function AgentRankingTable() {
             className="rounded-lg bg-ghost-violet px-6 py-2 font-semibold text-white transition-colors hover:bg-ghost-violet/80"
             type="button"
           >
-            더 보기 ({sortedAgents.length - visibleCount}개 남음)
+            Show More ({sortedAgents.length - visibleCount} remaining)
           </button>
         </div>
       )}

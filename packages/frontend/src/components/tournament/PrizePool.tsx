@@ -1,34 +1,34 @@
-/** 상금 풀 디스플레이 컴포넌트 */
+/** Prize pool display component */
 
 interface PrizePoolProps {
-  /** 총 상금 풀 (wei) */
-  readonly totalPool: bigint;
+  /** 총 상금 풀 (MON 단위) */
+  readonly totalPoolMon: number;
   /** 브래킷 사이즈 (8 또는 16) */
   readonly bracketSize: 8 | 16;
 }
 
-/** 상금 분배 비율 (8강 기준) */
+/** Prize distribution ratio (Top 8 bracket) */
 const PRIZE_DISTRIBUTION_8 = {
   first: 50, // 50%
   second: 30, // 30%
-  third: 20, // 20% (준결승 탈락 2팀 분배)
+  third: 20, // 20% (split between 2 semifinal losers)
 } as const;
 
-/** 상금 분배 비율 (16강 기준) */
+/** Prize distribution ratio (Top 16 bracket) */
 const PRIZE_DISTRIBUTION_16 = {
   first: 40, // 40%
   second: 25, // 25%
-  third: 15, // 15% (준결승 탈락 2팀)
-  fourth: 20, // 20% (8강 탈락 4팀 분배)
+  third: 15, // 15% (2 semifinal losers)
+  fourth: 20, // 20% (split between 4 quarterfinal losers)
 } as const;
 
 /**
- * 상금 풀 표시 컴포넌트
- * - 총 상금과 순위별 분배 비율 표시
- * - 네온 글로우 효과
+ * Prize pool display component
+ * - Shows total prize and per-rank distribution
+ * - Neon glow effect
  */
-export function PrizePool({ totalPool, bracketSize }: PrizePoolProps) {
-  const totalMon = Number(totalPool) / 1e18;
+export function PrizePool({ totalPoolMon, bracketSize }: PrizePoolProps) {
+  const totalMon = totalPoolMon;
   const distribution = bracketSize === 8 ? PRIZE_DISTRIBUTION_8 : PRIZE_DISTRIBUTION_16;
 
   const calculatePrize = (percentage: number): string => {
@@ -37,15 +37,15 @@ export function PrizePool({ totalPool, bracketSize }: PrizePoolProps) {
 
   return (
     <div className="rounded-lg border border-ghost-violet/30 bg-arena-card p-6">
-      {/* 트로피 아이콘과 타이틀 */}
+      {/* Trophy icon and title */}
       <div className="mb-4 flex items-center gap-3">
         <span className="text-3xl">🏆</span>
-        <h3 className="text-lg font-bold text-white">상금 풀</h3>
+        <h3 className="text-lg font-bold text-white">Prize Pool</h3>
       </div>
 
-      {/* 총 상금 */}
+      {/* Total prize */}
       <div className="mb-6 rounded-lg bg-gradient-to-r from-ghost-violet/20 to-ghost-neon/20 p-4">
-        <p className="mb-1 text-xs text-gray-400">총 상금</p>
+        <p className="mb-1 text-xs text-gray-400">Total Prize</p>
         <p
           className="neon-text text-2xl font-bold text-ghost-neon"
           style={{ fontFamily: 'var(--font-display)' }}
@@ -54,12 +54,12 @@ export function PrizePool({ totalPool, bracketSize }: PrizePoolProps) {
         </p>
       </div>
 
-      {/* 순위별 분배 */}
+      {/* Per-rank distribution */}
       <div className="space-y-3">
         <div className="flex items-center justify-between rounded-md bg-ghost-violet/10 px-3 py-2">
           <div className="flex items-center gap-2">
             <span className="text-lg">🥇</span>
-            <span className="text-sm text-gray-300">1위</span>
+            <span className="text-sm text-gray-300">1st Place</span>
           </div>
           <div className="text-right">
             <p className="text-sm font-bold text-ghost-neon">
@@ -72,7 +72,7 @@ export function PrizePool({ totalPool, bracketSize }: PrizePoolProps) {
         <div className="flex items-center justify-between rounded-md bg-ghost-blue/10 px-3 py-2">
           <div className="flex items-center gap-2">
             <span className="text-lg">🥈</span>
-            <span className="text-sm text-gray-300">2위</span>
+            <span className="text-sm text-gray-300">2nd Place</span>
           </div>
           <div className="text-right">
             <p className="text-sm font-bold text-ghost-blue">
@@ -85,7 +85,7 @@ export function PrizePool({ totalPool, bracketSize }: PrizePoolProps) {
         <div className="flex items-center justify-between rounded-md bg-ghost-pink/10 px-3 py-2">
           <div className="flex items-center gap-2">
             <span className="text-lg">🥉</span>
-            <span className="text-sm text-gray-300">3위</span>
+            <span className="text-sm text-gray-300">3rd Place</span>
           </div>
           <div className="text-right">
             <p className="text-sm font-bold text-ghost-pink">
@@ -99,7 +99,7 @@ export function PrizePool({ totalPool, bracketSize }: PrizePoolProps) {
           <div className="flex items-center justify-between rounded-md bg-gray-500/10 px-3 py-2">
             <div className="flex items-center gap-2">
               <span className="text-lg">🎖️</span>
-              <span className="text-sm text-gray-300">4위</span>
+              <span className="text-sm text-gray-300">4th Place</span>
             </div>
             <div className="text-right">
               <p className="text-sm font-bold text-gray-400">

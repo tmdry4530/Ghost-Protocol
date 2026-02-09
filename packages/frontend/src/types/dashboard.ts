@@ -74,7 +74,11 @@ export interface SurvivalSessionInfo {
 
 /** 피드 아이템 타입 */
 export type FeedItemType =
+  | 'tournament_created'
+  | 'tournament_completed'
   | 'tournament_win'
+  | 'match_started'
+  | 'match_completed'
   | 'record_break'
   | 'big_bet'
   | 'new_agent'
@@ -84,8 +88,11 @@ export type FeedItemType =
 export interface FeedItem {
   readonly id: string;
   readonly type: FeedItemType;
-  readonly description: string;
+  readonly message: string;
+  /** @deprecated description 대신 message 사용 권장 */
+  readonly description?: string;
   readonly timestamp: number;
+  readonly data?: Readonly<Record<string, unknown>>;
 }
 
 /** 에이전트 랭킹 */

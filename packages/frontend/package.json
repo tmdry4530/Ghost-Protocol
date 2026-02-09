@@ -13,25 +13,26 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ghost-protocol/shared": "workspace:*",
+    "@tanstack/react-query": "^5.90.0",
+    "phaser": "^3.90.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "phaser": "^3.90.0",
-    "wagmi": "^2.14.0",
-    "viem": "^2.45.1",
-    "@tanstack/react-query": "^5.90.0",
     "react-router-dom": "^7.0.0",
-    "zustand": "^5.0.0",
     "socket.io-client": "^4.8.3",
     "tone": "^15.1.22",
-    "@ghost-protocol/shared": "workspace:*"
+    "viem": "^2.45.1",
+    "wagmi": "^2.14.0",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "vite": "^6.0.0",
-    "@vitejs/plugin-react": "^4.3.0",
+    "@tailwindcss/vite": "^4.1.18",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.0",
     "tailwindcss": "^4.0.0",
-    "vitest": "^3.0.0",
-    "autoprefixer": "^10.4.0"
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
   }
 }

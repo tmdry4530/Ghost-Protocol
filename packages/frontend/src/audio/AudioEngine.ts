@@ -35,6 +35,20 @@ export class AudioEngine {
   }
 
   /**
+   * Tone.js 컨텍스트가 유효한지 확인한다.
+   * 컨텍스트가 닫혀있거나 접근 불가능하면 false를 반환한다.
+   *
+   * @returns 컨텍스트가 유효하면 true
+   */
+  private isContextValid(): boolean {
+    try {
+      return Tone.getContext().state !== 'closed';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * 싱글톤 인스턴스를 반환한다.
    * 인스턴스가 없으면 새로 생성한다.
    *
@@ -61,6 +75,11 @@ export class AudioEngine {
     }
 
     try {
+      // 컨텍스트가 닫혀있으면 새 볼륨 노드 생성
+      if (!this.isContextValid()) {
+        this.masterVolume = new Tone.Volume(0);
+        this.masterVolume.toDestination();
+      }
       await Tone.start();
       this.initialized = true;
     } catch (error: unknown) {
@@ -75,6 +94,10 @@ export class AudioEngine {
    * @param db - 데시벨 단위의 볼륨 값 (예: -6, -12, 0)
    */
   setMasterVolume(db: number): void {
+    if (!this.initialized || !this.isContextValid()) {
+      return;
+    }
+
     try {
       this.masterVolume.volume.value = db;
       if (!this.muted) {
@@ -91,6 +114,10 @@ export class AudioEngine {
    * 현재 볼륨 값을 보존하여 {@link unmute} 시 복원한다.
    */
   mute(): void {
+    if (!this.initialized || !this.isContextValid()) {
+      return;
+    }
+
     try {
       if (!this.muted) {
         this.previousVolume = this.masterVolume.volume.value;
@@ -107,6 +134,10 @@ export class AudioEngine {
    * 음소거를 해제하고 이전 볼륨으로 복원한다.
    */
   unmute(): void {
+    if (!this.initialized || !this.isContextValid()) {
+      return;
+    }
+
     try {
       if (this.muted) {
         this.muted = false;
@@ -153,7 +184,9 @@ export class AudioEngine {
    */
   dispose(): void {
     try {
-      this.masterVolume.dispose();
+      if (this.isContextValid()) {
+        this.masterVolume.dispose();
+      }
       this.initialized = false;
       this.muted = false;
       this.previousVolume = 0;

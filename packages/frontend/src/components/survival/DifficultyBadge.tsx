@@ -1,41 +1,42 @@
 /**
- * 난이도 티어 배지 컴포넌트
- * 현재 난이도를 시각적으로 표시
+ * Difficulty tier badge component
+ * Compact circular badge + Press Start 2P font
+ * Tier-specific colors + glow shadow + star display
  */
 import { useEffect, useState } from 'react';
 import type { DifficultyTier } from '@ghost-protocol/shared';
 
 interface DifficultyBadgeProps {
-  /** 난이도 등급 (1~5) */
+  /** Difficulty tier (1-5) */
   tier: DifficultyTier;
 }
 
-/** 난이도별 색상 */
+/** Tier colors */
 const TIER_COLORS: Record<DifficultyTier, string> = {
-  1: '#3b82f6', // 블루 - 쉬움
-  2: '#10b981', // 그린 - 보통
-  3: '#f59e0b', // 옐로우 - 어려움
-  4: '#f97316', // 오렌지 - 극한
-  5: '#ef4444', // 레드 - 지옥
+  1: '#3b82f6', // Blue - Easy
+  2: '#10b981', // Green - Normal
+  3: '#f59e0b', // Yellow - Hard
+  4: '#f97316', // Orange - Extreme
+  5: '#ef4444', // Red - Hell
 };
 
-/** 난이도별 라벨 */
+/** Tier labels */
 const TIER_LABELS: Record<DifficultyTier, string> = {
-  1: '쉬움',
-  2: '보통',
-  3: '어려움',
-  4: '극한',
-  5: '지옥',
+  1: 'EASY',
+  2: 'NORMAL',
+  3: 'HARD',
+  4: 'EXTREME',
+  5: 'HELL',
 };
 
 /**
- * 난이도 티어 배지
- * 티어 변경 시 바운스 애니메이션 적용
+ * Difficulty tier badge
+ * Bounce animation on tier change
  */
 export function DifficultyBadge({ tier }: DifficultyBadgeProps) {
   const [animate, setAnimate] = useState(false);
 
-  // 티어 변경 시 애니메이션 트리거
+  // Trigger animation on tier change
   useEffect(() => {
     setAnimate(true);
     const timer = setTimeout(() => { setAnimate(false); }, 600);
@@ -47,38 +48,47 @@ export function DifficultyBadge({ tier }: DifficultyBadgeProps) {
 
   return (
     <div
-      className={`flex flex-col items-center gap-2 transition-all duration-300 ${
+      className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${
         animate ? 'animate-bounce' : ''
       }`}
     >
-      {/* 티어 번호 배지 */}
+      {/* Tier number badge - compact circle */}
       <div
-        className="relative w-20 h-20 rounded-full flex items-center justify-center font-bold text-4xl shadow-lg"
+        className="relative w-14 h-14 rounded-full flex items-center justify-center border-2 backdrop-blur-sm"
         style={{
-          backgroundColor: color,
-          boxShadow: `0 0 20px ${color}80`,
+          fontFamily: 'var(--font-display)',
+          borderColor: color,
+          backgroundColor: 'rgba(20, 20, 37, 0.8)',
+          boxShadow: `0 0 12px ${color}60, 0 0 24px ${color}30`,
+          fontSize: '1.5rem',
+          fontWeight: 'bold',
+          color,
         }}
       >
         {tier}
-        {/* 별 아이콘 오버레이 */}
-        <div className="absolute -top-1 -right-1 text-yellow-300 text-xl">★</div>
       </div>
 
-      {/* 난이도 라벨 */}
-      <div className="text-sm font-semibold uppercase tracking-wide" style={{ color }}>
+      {/* Difficulty label */}
+      <div
+        className="text-[9px] uppercase tracking-wider"
+        style={{
+          fontFamily: 'var(--font-display)',
+          color,
+        }}
+      >
         {label}
       </div>
 
-      {/* 별 표시 */}
-      <div className="flex gap-1">
+      {/* Star display - compact */}
+      <div className="flex gap-0.5">
         {Array.from({ length: 5 }, (_, i) => (
           <span
             key={i}
-            className={`text-lg transition-all duration-300 ${
-              i < tier ? 'text-yellow-400 scale-110' : 'text-gray-600'
+            className={`text-sm transition-all duration-300 ${
+              i < tier ? 'text-amber-400' : 'text-gray-700'
             }`}
           >
-            {i < tier ? '★' : '☆'}
+            {i < tier ? '\u2605' : '\u2606'}
           </span>
         ))}
       </div>

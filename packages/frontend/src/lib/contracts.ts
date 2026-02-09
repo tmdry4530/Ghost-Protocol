@@ -1,3 +1,5 @@
+import { parseAbi } from 'viem';
+
 /**
  * 스마트 컨트랙트 ABI 및 주소 정의
  *
@@ -10,7 +12,7 @@
  *
  * Arena Mode에서 AI vs AI 매치에 베팅하고 상금을 청구하는 기능을 제공합니다.
  */
-export const WAGER_POOL_ABI = [
+export const WAGER_POOL_ABI = parseAbi([
   // 쓰기 함수
   'function placeBet(uint256 matchId, uint8 side) external payable',
   'function claimWinnings(uint256 matchId) external',
@@ -29,14 +31,14 @@ export const WAGER_POOL_ABI = [
   'event BetsSettled(uint256 indexed matchId, uint8 winner, uint256 totalPayout)',
   'event WinningsClaimed(uint256 indexed matchId, address indexed bettor, uint256 amount)',
   'event BetsRefunded(uint256 indexed matchId)',
-] as const;
+]);
 
 /**
  * SurvivalBet 컨트랙트 ABI (human-readable format)
  *
  * Survival Mode에서 플레이어의 생존 라운드를 예측하고 베팅하는 기능을 제공합니다.
  */
-export const SURVIVAL_BET_ABI = [
+export const SURVIVAL_BET_ABI = parseAbi([
   // 쓰기 함수
   'function placePrediction(uint256 sessionId, uint8 predictedRound) external payable',
   'function claimPayout(uint256 sessionId) external',
@@ -55,7 +57,7 @@ export const SURVIVAL_BET_ABI = [
   'event RoundSurvived(uint256 indexed sessionId, uint8 round)',
   'event SessionSettled(uint256 indexed sessionId, uint8 eliminationRound, uint256 totalPayout)',
   'event PayoutClaimed(uint256 indexed sessionId, address indexed bettor, uint256 amount)',
-] as const;
+]);
 
 /**
  * WagerPool 컨트랙트 주소

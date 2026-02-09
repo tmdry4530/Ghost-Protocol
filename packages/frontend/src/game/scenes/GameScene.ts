@@ -7,7 +7,7 @@ import Phaser from 'phaser';
 import type { GameState, GhostId, GhostMode, Direction, Position } from '@ghost-protocol/shared';
 
 /** 각 타일의 픽셀 크기 */
-const TILE_SIZE = 20;
+const TILE_SIZE = 24;
 
 /** 네온 색상 팔레트 */
 const COLORS = {
@@ -100,6 +100,9 @@ export class GameScene extends Phaser.Scene {
   /** 고스트 이전 위치 (이동 방향 추정용) */
   private prevGhostPositions: Map<GhostId, Position> = new Map();
 
+  /** 씬이 create() 완료되었는지 여부 (외부에서 상태 주입 가능 시점 판단용) */
+  private sceneReady = false;
+
   /** 방향키 입력 객체 */
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
 
@@ -132,6 +135,14 @@ export class GameScene extends Phaser.Scene {
         D: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
       };
     }
+
+    // 씬 초기화 완료 — 외부에서 상태 주입 가능
+    this.sceneReady = true;
+  }
+
+  /** 씬이 create() 완료되어 상태를 받을 준비가 되었는지 확인 */
+  getIsReady(): boolean {
+    return this.sceneReady;
   }
 
   /** 매 프레임 업데이트 - 입력 읽기, 애니메이션 갱신, 렌더링 */

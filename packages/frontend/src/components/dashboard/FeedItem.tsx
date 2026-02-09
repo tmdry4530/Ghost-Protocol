@@ -3,20 +3,28 @@
  * 최근 이벤트 표시
  */
 import type { FeedItem as FeedItemType, FeedItemType as EventType } from '@/types/dashboard';
-import { formatRelativeTime } from '@/data/mockDashboard';
+import { formatRelativeTime } from '@/lib/formatters';
 
 /** 피드 아이템 타입별 아이콘 매핑 */
 const iconMap: Record<EventType, string> = {
-  tournament_win: '🏆',
-  record_break: '⚡',
-  big_bet: '💰',
-  new_agent: '🤖',
-  survival_complete: '👾',
+  tournament_created: '\u{1F3C6}',
+  tournament_completed: '\u{1F451}',
+  tournament_win: '\u{1F3C6}',
+  match_started: '\u26A1',
+  match_completed: '\u2705',
+  record_break: '\u26A1',
+  big_bet: '\u{1F4B0}',
+  new_agent: '\u{1F916}',
+  survival_complete: '\u{1F47E}',
 };
 
 /** 피드 아이템 타입별 색상 매핑 */
 const colorMap: Record<EventType, string> = {
+  tournament_created: 'text-ghost-violet',
+  tournament_completed: 'text-ghost-orange',
   tournament_win: 'text-ghost-orange',
+  match_started: 'text-ghost-neon',
+  match_completed: 'text-ghost-blue',
   record_break: 'text-ghost-neon',
   big_bet: 'text-ghost-pink',
   new_agent: 'text-ghost-violet',
@@ -48,7 +56,7 @@ export function FeedItem({ item }: FeedItemProps) {
 
       {/* 내용 */}
       <div className="flex-1 space-y-1">
-        <p className="text-sm text-gray-200">{item.description}</p>
+        <p className="text-sm text-gray-200">{item.message ?? item.description}</p>
         <p className="text-xs text-gray-500">{timeAgo}</p>
       </div>
 

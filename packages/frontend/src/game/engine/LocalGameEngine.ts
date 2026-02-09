@@ -450,6 +450,12 @@ export class LocalGameEngine {
   /** 과일 스폰 완료된 임계값 인덱스 추적 */
   private fruitSpawnIndex: number = 0;
 
+  /** 사망 애니메이션 중 플래그 */
+  private isDying: boolean = false;
+
+  /** 사망 일시정지 남은 틱 수 */
+  private deathPauseTicks: number = 0;
+
   // ===== 난이도 설정 =====
 
   /** 현재 난이도 설정 */
@@ -511,6 +517,16 @@ export class LocalGameEngine {
    */
   tick(input?: Direction): GameState {
     if (this.gameOverFlag) {
+      return this.getState();
+    }
+
+    // 사망 일시정지 — 게임 멈춤, 카운트다운 후 위치 리셋
+    if (this.isDying && !this.gameOverFlag) {
+      this.deathPauseTicks--;
+      if (this.deathPauseTicks <= 0) {
+        this.isDying = false;
+        this.resetPositions();
+      }
       return this.getState();
     }
 
@@ -584,6 +600,7 @@ export class LocalGameEngine {
       powerActive: this.powerActive,
       powerTimeRemaining: this.powerTimeRemaining,
       fruitAvailable: this.fruitInfo,
+      dying: this.isDying,
     };
   }
 
@@ -614,6 +631,8 @@ export class LocalGameEngine {
     this.pelletsEaten = 0;
     this.fruitSpawnIndex = 0;
     this.extraLifeAwarded = false;
+    this.isDying = false;
+    this.deathPauseTicks = 0;
 
     this.rng = new Xorshift128Plus(this.initialSeed);
     this.mutablePellets = this.clonePellets(this.baseMaze.pellets);
@@ -1042,11 +1061,13 @@ export class LocalGameEngine {
 
     if (this.lives <= 0) {
       this.gameOverFlag = true;
+      this.isDying = true;
       return;
     }
 
-    // 위치 리셋 (펠릿 상태는 유지)
-    this.resetPositions();
+    // 사망 일시정지 시작 — 위치는 일시정지 종료 후 리셋
+    this.isDying = true;
+    this.deathPauseTicks = 90; // 1.5초 (60fps 기준)
   }
 
   /**

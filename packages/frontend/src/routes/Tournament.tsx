@@ -1,132 +1,372 @@
-/** 토너먼트 페이지 */
+/** Tournament page */
 
 import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { BracketView } from '@/components/tournament/BracketView';
 import { PrizePool } from '@/components/tournament/PrizePool';
-import { mockTournament, mockBracketRounds, agentNames } from '@/data/mockTournament';
+import type { BracketRound, BracketMatch, MatchStatus } from '@/types/tournament';
+
+/** API Base URL */
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001/api/v1';
+
+/** 백엔드 API 응답 타입 */
+interface TournamentResponse {
+  tournament: {
+    id: string;
+    participants: string[];
+    bracketSize: 8 | 16;
+    status: 'upcoming' | 'active' | 'completed';
+    currentRound: number;
+    matches: MatchData[];
+    champion: string | null;
+    prizePool: string;
+    createdAt: number;
+  };
+}
+
+interface MatchData {
+  id: string;
+  tournamentId: string;
+  round: number;
+  agentA: string;
+  agentB: string;
+  scoreA: number;
+  scoreB: number;
+  winner: string | null;
+  status: MatchStatus;
+  createdAt: number;
+}
+
+interface AgentData {
+  address: string;
+  name: string;
+  elo: number;
+  wins: number;
+  losses: number;
+}
+
+interface TournamentsListResponse {
+  tournaments: Array<{
+    id: string;
+    status: 'upcoming' | 'active' | 'completed';
+    createdAt: number;
+  }>;
+}
+
+interface AgentsResponse {
+  agents: AgentData[];
+}
 
 /**
- * 토너먼트 상세 페이지
- * - 브래킷 시각화
- * - 참가자 리스트
- * - 상금 풀 정보
+ * Tournament detail page
+ * - Bracket visualization
+ * - Participant list
+ * - Prize pool info
  */
 export function Tournament() {
   const { id } = useParams<{ id: string }>();
+  const [tournament, setTournament] = useState<TournamentResponse['tournament'] | null>(null);
+  const [agentsMap, setAgentsMap] = useState<Map<string, AgentData>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 실제로는 id로 데이터 fetch, 여기서는 목업 사용
-  const tournament = mockTournament;
-  const rounds = mockBracketRounds;
+  useEffect(() => {
+    let mounted = true;
+    let refreshTimer: ReturnType<typeof setInterval>;
 
-  // 상태 배지 스타일
-  const getStatusBadge = () => {
-    switch (tournament.status) {
+    const fetchData = async () => {
+      try {
+        // 에이전트 정보 가져오기
+        const agentsRes = await fetch(`${API_URL}/agents`);
+        if (!agentsRes.ok) throw new Error('에이전트 목록 조회 실패');
+        const agentsData = (await agentsRes.json()) as AgentsResponse;
+        const newAgentsMap = new Map(agentsData.agents.map((a) => [a.address, a]));
+
+        // 토너먼트 ID 결정 (current 또는 undefined → 최신 활성/완료 토너먼트)
+        let tournamentId = id;
+        if (!id || id === 'current') {
+          const listRes = await fetch(`${API_URL}/tournaments`);
+          if (!listRes.ok) throw new Error('토너먼트 목록 조회 실패');
+          const listData = (await listRes.json()) as TournamentsListResponse;
+
+          // 활성 토너먼트 우선, 없으면 가장 최근 토너먼트
+          const active = listData.tournaments.find((t) => t.status === 'active');
+          const latest = [...listData.tournaments].sort((a, b) => b.createdAt - a.createdAt)[0];
+          tournamentId = active?.id ?? latest?.id;
+
+          if (!tournamentId) {
+            if (mounted) {
+              setError('활성 토너먼트가 없습니다');
+              setLoading(false);
+            }
+            return;
+          }
+        }
+
+        // 토너먼트 상세 정보 가져오기
+        const tournamentRes = await fetch(`${API_URL}/tournaments/${tournamentId}`);
+        if (!tournamentRes.ok) {
+          if (mounted) {
+            if (tournamentRes.status === 404) {
+              setError('토너먼트를 찾을 수 없습니다');
+            } else {
+              throw new Error('토너먼트 조회 실패');
+            }
+            setLoading(false);
+          }
+          return;
+        }
+
+        const tournamentData = (await tournamentRes.json()) as TournamentResponse;
+
+        if (mounted) {
+          setAgentsMap(newAgentsMap);
+          setTournament(tournamentData.tournament);
+          setError(null);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'API 연결 실패');
+          setLoading(false);
+        }
+      }
+    };
+
+    void fetchData();
+
+    // 10초마다 자동 갱신
+    refreshTimer = setInterval(() => {
+      void fetchData();
+    }, 10000);
+
+    return () => {
+      mounted = false;
+      clearInterval(refreshTimer);
+    };
+  }, [id]);
+
+  // 매치를 라운드별로 그룹화하여 BracketRound 생성
+  const buildBracketRounds = (): BracketRound[] => {
+    if (!tournament) return [];
+
+    const matchesByRound = new Map<number, MatchData[]>();
+    for (const match of tournament.matches) {
+      const existing = matchesByRound.get(match.round) ?? [];
+      existing.push(match);
+      matchesByRound.set(match.round, existing);
+    }
+
+    const rounds: BracketRound[] = [];
+    const sortedRounds = [...matchesByRound.keys()].sort((a, b) => a - b);
+
+    for (const round of sortedRounds) {
+      const matches = matchesByRound.get(round) ?? [];
+      const bracketMatches: BracketMatch[] = matches.map((m) => {
+        const agentAData = agentsMap.get(m.agentA);
+        const agentBData = agentsMap.get(m.agentB);
+
+        return {
+          id: m.id as BracketMatch['id'],
+          agentA: {
+            name: agentAData?.name ?? 'TBD',
+            address: m.agentA,
+            score: m.status === 'completed' ? m.scoreA : null,
+          },
+          agentB: {
+            name: agentBData?.name ?? 'TBD',
+            address: m.agentB,
+            score: m.status === 'completed' ? m.scoreB : null,
+          },
+          winner: m.winner,
+          status: m.status,
+        };
+      });
+
+      // 라운드 이름 생성
+      const bracketSize = tournament.bracketSize;
+      let roundName = `Round ${String(round)}`;
+      if (bracketSize === 8) {
+        if (round === 1) roundName = '8강';
+        else if (round === 2) roundName = '준결승';
+        else if (round === 3) roundName = '결승';
+      } else if (bracketSize === 16) {
+        if (round === 1) roundName = '16강';
+        else if (round === 2) roundName = '8강';
+        else if (round === 3) roundName = '준결승';
+        else if (round === 4) roundName = '결승';
+      }
+
+      rounds.push({ name: roundName, matches: bracketMatches });
+    }
+
+    return rounds;
+  };
+
+  const bracketRounds = buildBracketRounds();
+  const prizePoolMon = tournament ? parseFloat(tournament.prizePool) || 0 : 0;
+
+  // 로딩 상태
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-20 pt-24">
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-ghost-violet/20 border-t-ghost-violet"></div>
+            <p className="text-sm text-gray-400">토너먼트 데이터 로딩 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 에러 또는 데이터 없음
+  if (error || !tournament) {
+    return (
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-20 pt-24">
+        <div>
+          <Link
+            to="/"
+            className="mb-2 inline-flex items-center gap-2 text-xs tracking-wider text-ghost-violet hover:text-white"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            &larr; Back to Dashboard
+          </Link>
+        </div>
+        <div className="flex min-h-[400px] flex-col items-center justify-center rounded-xl border border-ghost-violet/10 bg-arena-surface/40 p-12 text-center backdrop-blur-sm">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" className="mb-6 text-ghost-violet/30">
+            <path d="M12 2C7.58 2 4 5.58 4 10V20.5L6.5 18L9 20.5L12 17.5L15 20.5L17.5 18L20 20.5V10C20 5.58 16.42 2 12 2Z" fill="currentColor" />
+          </svg>
+          <p className="text-lg font-semibold text-gray-400" style={{ fontFamily: 'var(--font-display)' }}>
+            {error ?? 'No Tournament Data'}
+          </p>
+          <p className="mt-2 text-sm text-gray-500">
+            Tournament data will appear here when a tournament is active.
+          </p>
+          <Link
+            to="/"
+            className="mt-6 rounded-lg border border-ghost-violet/40 bg-ghost-violet/10 px-6 py-2.5 text-sm tracking-wider text-ghost-violet transition-all hover:bg-ghost-violet/20"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // 상태 뱃지 색상
+  const getStatusBadge = (status: string) => {
+    switch (status) {
       case 'active':
-        return (
-          <span className="rounded-full bg-green-500/20 px-3 py-1 text-xs font-bold text-green-400">
-            🔴 진행중
-          </span>
-        );
-      case 'upcoming':
-        return (
-          <span className="rounded-full bg-blue-500/20 px-3 py-1 text-xs font-bold text-blue-400">
-            ⏰ 예정
-          </span>
-        );
+        return 'bg-ghost-neon/20 text-ghost-neon border-ghost-neon/40';
       case 'completed':
-        return (
-          <span className="rounded-full bg-gray-500/20 px-3 py-1 text-xs font-bold text-gray-400">
-            ✓ 완료
-          </span>
-        );
+        return 'bg-green-500/20 text-green-400 border-green-500/40';
+      case 'upcoming':
+      default:
+        return 'bg-ghost-violet/20 text-ghost-violet border-ghost-violet/40';
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Link
-            to="/"
-            className="mb-2 inline-flex items-center gap-2 text-sm text-ghost-violet hover:text-ghost-neon"
-          >
-            ← 대시보드로 돌아가기
-          </Link>
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-20 pt-24">
+      {/* Header */}
+      <div>
+        <Link
+          to="/"
+          className="mb-2 inline-flex items-center gap-2 text-xs tracking-wider text-ghost-violet hover:text-white"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          &larr; Back to Dashboard
+        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <h1
-              className="neon-text text-2xl font-bold text-white"
+              className="neon-text-purple text-2xl tracking-widest text-white"
               style={{ fontFamily: 'var(--font-display)' }}
             >
-              토너먼트 #{id || tournament.id}
+              Tournament #{tournament.id}
             </h1>
-            {getStatusBadge()}
+            <span
+              className={`rounded-full border px-3 py-1 text-xs font-bold tracking-wider ${getStatusBadge(tournament.status)}`}
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              {tournament.status.toUpperCase()}
+            </span>
           </div>
-          <p className="mt-2 text-sm text-gray-400">
-            {new Date(tournament.createdAt).toLocaleString('ko-KR')} 시작
-          </p>
+          {tournament.champion && (
+            <div className="flex items-center gap-2 rounded-lg border border-ghost-neon/30 bg-ghost-neon/10 px-4 py-2">
+              <span className="text-xl">&#x1F451;</span>
+              <div>
+                <p className="text-xs text-gray-400">Champion</p>
+                <p className="font-bold text-ghost-neon" style={{ fontFamily: 'var(--font-display)' }}>
+                  {agentsMap.get(tournament.champion)?.name ?? tournament.champion}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 그리드 레이아웃: 브래킷 + 사이드바 */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-        {/* 메인: 브래킷 (3칸) */}
-        <div className="lg:col-span-3">
-          <div className="rounded-lg border border-ghost-violet/30 bg-arena-surface p-6">
-            <h2 className="mb-4 text-lg font-bold text-white">브래킷</h2>
-            <BracketView bracketSize={tournament.bracketSize} rounds={rounds} />
-          </div>
+      {/* 토너먼트 정보 그리드 */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Prize Pool */}
+        <div className="lg:col-span-1">
+          <PrizePool totalPoolMon={prizePoolMon} bracketSize={tournament.bracketSize} />
         </div>
 
-        {/* 사이드바: 상금 풀 + 참가자 (1칸) */}
-        <div className="space-y-6">
-          {/* 상금 풀 */}
-          <PrizePool totalPool={tournament.prizePool} bracketSize={tournament.bracketSize} />
-
-          {/* 참가자 목록 */}
+        {/* 토너먼트 정보 카드 */}
+        <div className="lg:col-span-2">
           <div className="rounded-lg border border-ghost-violet/30 bg-arena-card p-6">
-            <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
-              <span>👾</span>
-              참가 에이전트
-            </h3>
-            <div className="space-y-2">
-              {tournament.participants.map((address) => (
-                <div
-                  key={address}
-                  className="flex items-center justify-between rounded-md bg-ghost-violet/10 px-3 py-2 text-sm"
-                >
-                  <span className="font-medium text-gray-300">
-                    {agentNames[address] || '알 수 없음'}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {address.slice(0, 6)}...{address.slice(-4)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 토너먼트 통계 */}
-          <div className="rounded-lg border border-ghost-violet/30 bg-arena-card p-6">
-            <h3 className="mb-4 text-lg font-bold text-white">통계</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">참가자 수</span>
-                <span className="font-bold text-white">{tournament.participants.length}</span>
+            <h3 className="mb-4 text-lg font-bold text-white">토너먼트 정보</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-400">브래킷 사이즈</p>
+                <p className="text-lg font-bold text-ghost-violet">{tournament.bracketSize}강</p>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">브래킷 형식</span>
-                <span className="font-bold text-white">{tournament.bracketSize}강 토너먼트</span>
+              <div>
+                <p className="text-xs text-gray-400">참가자</p>
+                <p className="text-lg font-bold text-ghost-violet">{tournament.participants.length}명</p>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">총 매치 수</span>
-                <span className="font-bold text-white">
-                  {tournament.bracketSize === 8 ? '7' : '15'}
-                </span>
+              <div>
+                <p className="text-xs text-gray-400">현재 라운드</p>
+                <p className="text-lg font-bold text-ghost-violet">Round {tournament.currentRound}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">총 매치</p>
+                <p className="text-lg font-bold text-ghost-violet">{tournament.matches.length}경기</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-gray-400">생성 시간</p>
+                <p className="text-sm text-gray-300">
+                  {new Date(tournament.createdAt).toLocaleString('ko-KR')}
+                </p>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Bracket Visualization */}
+      <div className="overflow-visible rounded-lg border border-ghost-violet/30 bg-arena-card p-6">
+        <h2
+          className="mb-6 text-xl font-bold text-white"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          Tournament Bracket
+        </h2>
+        {bracketRounds.length > 0 ? (
+          <BracketView bracketSize={tournament.bracketSize} rounds={bracketRounds} />
+        ) : (
+          <div className="py-12 text-center text-gray-400">
+            매치 데이터가 아직 생성되지 않았습니다.
+          </div>
+        )}
+      </div>
+
+      {/* 자동 갱신 표시 */}
+      <div className="text-center text-xs text-gray-500">
+        10초마다 자동 갱신됩니다
       </div>
     </div>
   );

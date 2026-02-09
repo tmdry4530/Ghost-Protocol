@@ -24,10 +24,34 @@ export const monadTestnet = defineChain({
   testnet: true,
 });
 
-/** wagmi 설정 — Monad 테스트넷 전용 */
+/** Monad 메인넷 체인 정의 */
+export const monadMainnet = defineChain({
+  id: 143,
+  name: 'Monad',
+  nativeCurrency: {
+    name: 'MON',
+    symbol: 'MON',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.monad.xyz/v1'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Monad Explorer',
+      url: 'https://explorer.monad.xyz',
+    },
+  },
+  testnet: false,
+});
+
+/** wagmi 설정 — Monad 테스트넷 및 메인넷 지원 */
 export const wagmiConfig = createConfig({
-  chains: [monadTestnet],
+  chains: [monadTestnet, monadMainnet],
   transports: {
     [monadTestnet.id]: http(),
+    [monadMainnet.id]: http(),
   },
 });

@@ -64,7 +64,7 @@ export function useMatchSocket(matchId: MatchId | null) {
         setLocked(true);
         setNotification({
           type: 'locked',
-          message: '배팅이 마감되었습니다. 매치가 곧 시작됩니다!',
+          message: 'Betting is closed. Match starting soon!',
         });
       }
     };
@@ -92,8 +92,8 @@ export function useMatchSocket(matchId: MatchId | null) {
         setNotification({
           type: 'settled',
           message: isWin
-            ? `축하합니다! ${formatMon(event.yourPayout ?? 0n)} MON을 획득했습니다!`
-            : '아쉽습니다. 다음 기회를 노려보세요.',
+            ? `Congratulations! You won ${formatMon(event.yourPayout ?? 0n)} MON!`
+            : 'Better luck next time.',
         });
       }
     };

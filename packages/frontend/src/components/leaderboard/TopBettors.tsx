@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-/** 베터 정보 인터페이스 */
+/** Bettor info interface */
 interface BettorInfo {
   readonly address: string;
   readonly totalWagered: number;
@@ -9,7 +9,7 @@ interface BettorInfo {
   readonly netProfit: number;
 }
 
-/** 순위 뱃지 컴포넌트 */
+/** Rank badge component */
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) {
     return (
@@ -35,85 +35,45 @@ function RankBadge({ rank }: { rank: number }) {
   return <span className="px-3 py-1 text-sm font-semibold text-gray-400">{rank}</span>;
 }
 
-/** 승률 색상 계산 */
+/** Win rate color calculation */
 function getWinRateColor(winRate: number): string {
   if (winRate >= 60) return 'text-green-400';
   if (winRate >= 40) return 'text-yellow-400';
   return 'text-red-400';
 }
 
-/** 수익 색상 계산 */
+/** Profit color calculation */
 function getProfitColor(profit: number): string {
   return profit >= 0 ? 'text-green-400' : 'text-red-400';
 }
 
-/** MON 포맷팅 */
+/** MON formatting */
 function formatMON(value: number): string {
   return `${value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MON`;
 }
 
-/** 모의 베터 데이터 생성 */
-function generateMockBettors(): BettorInfo[] {
-  const bettors: BettorInfo[] = [
-    {
-      address: '0x1a2b...3c4d',
-      totalWagered: 125.5,
-      winRate: 68,
-      biggestWin: 15.2,
-      netProfit: 45.3,
-    },
-    {
-      address: '0x5e6f...7a8b',
-      totalWagered: 98.2,
-      winRate: 62,
-      biggestWin: 12.1,
-      netProfit: 28.7,
-    },
-    {
-      address: '0x9c0d...1e2f',
-      totalWagered: 87.6,
-      winRate: 59,
-      biggestWin: 10.8,
-      netProfit: 18.4,
-    },
-    { address: '0x3g4h...5i6j', totalWagered: 76.3, winRate: 55, biggestWin: 9.5, netProfit: 12.1 },
-    { address: '0x7k8l...9m0n', totalWagered: 68.9, winRate: 52, biggestWin: 8.3, netProfit: 5.6 },
-    { address: '0xop1q...2r3s', totalWagered: 62.4, winRate: 48, biggestWin: 7.7, netProfit: -2.3 },
-    { address: '0x4t5u...6v7w', totalWagered: 58.7, winRate: 45, biggestWin: 6.9, netProfit: -5.8 },
-    { address: '0x8x9y...0z1a', totalWagered: 54.3, winRate: 42, biggestWin: 6.2, netProfit: -8.9 },
-    {
-      address: '0xb2c3...d4e5',
-      totalWagered: 51.2,
-      winRate: 39,
-      biggestWin: 5.8,
-      netProfit: -12.4,
-    },
-    {
-      address: '0xf6g7...h8i9',
-      totalWagered: 48.6,
-      winRate: 36,
-      biggestWin: 5.3,
-      netProfit: -15.7,
-    },
-    { address: '0xj0k1...l2m3', totalWagered: 45.8, winRate: 58, biggestWin: 8.9, netProfit: 14.2 },
-    { address: '0xn4o5...p6q7', totalWagered: 42.1, winRate: 51, biggestWin: 7.4, netProfit: 3.8 },
-    { address: '0xr8s9...t0u1', totalWagered: 38.9, winRate: 47, biggestWin: 6.1, netProfit: -4.2 },
-    { address: '0xv2w3...x4y5', totalWagered: 35.7, winRate: 43, biggestWin: 5.5, netProfit: -7.9 },
-    {
-      address: '0xz6a7...b8c9',
-      totalWagered: 32.4,
-      winRate: 40,
-      biggestWin: 4.9,
-      netProfit: -10.3,
-    },
-  ];
-
-  return bettors;
-}
-
-/** 톱 베터 컴포넌트 */
+/** Top bettors component */
 export function TopBettors() {
-  const [bettors] = useState<BettorInfo[]>(generateMockBettors());
+  const [bettors] = useState<BettorInfo[]>([]);
+
+  if (bettors.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex min-h-[300px] flex-col items-center justify-center rounded-lg border border-arena-border bg-arena-card p-8 text-center">
+          <p className="text-lg font-semibold text-gray-400">No Bettor Data</p>
+          <p className="mt-2 text-sm text-gray-500">
+            Top bettors will appear here when bets are placed.
+          </p>
+        </div>
+        <div className="rounded-lg bg-arena-surface/30 border border-arena-border/50 p-4">
+          <p className="text-sm text-gray-400">
+            💡 <span className="font-semibold text-white">Tip:</span> A high total wagered amount
+            does not always mean high profits. Win rate and betting strategy matter!
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -121,12 +81,12 @@ export function TopBettors() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-arena-border bg-arena-surface/50">
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">순위</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">플레이어</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">총 배팅액</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">승률</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">최대 수익</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">순수익</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Rank</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Player</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Total Wagered</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Win Rate</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Biggest Win</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300">Net Profit</th>
             </tr>
           </thead>
           <tbody>
@@ -166,8 +126,8 @@ export function TopBettors() {
 
       <div className="rounded-lg bg-arena-surface/30 border border-arena-border/50 p-4">
         <p className="text-sm text-gray-400">
-          💡 <span className="font-semibold text-white">팁:</span> 높은 총 배팅액이 항상 높은 수익을
-          의미하지는 않습니다. 승률과 베팅 전략이 중요합니다!
+          💡 <span className="font-semibold text-white">Tip:</span> A high total wagered amount
+          does not always mean high profits. Win rate and betting strategy matter!
         </p>
       </div>
     </div>

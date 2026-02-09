@@ -8,19 +8,19 @@ import { useWallet } from '../../hooks/useWallet.js';
 import { useAudio } from '../../hooks/useAudio.js';
 
 interface BettingPanelProps {
-  /** 매치 ID */
+  /** Match ID */
   matchId: MatchId;
-  /** Agent A 이름 */
+  /** Agent A name */
   agentAName: string;
-  /** Agent B 이름 */
+  /** Agent B name */
   agentBName: string;
-  /** 배팅 마감 시각 (Unix timestamp ms, optional) */
+  /** Betting deadline (Unix timestamp ms, optional) */
   bettingDeadline?: number;
 }
 
 /**
- * 배팅 패널 컴포넌트
- * 매치 관전 페이지 우측에 표시되는 배팅 인터페이스
+ * Betting panel component
+ * Betting interface displayed on the right side of the match spectating page
  */
 export function BettingPanel({
   matchId,
@@ -49,7 +49,24 @@ export function BettingPanel({
   const [selectedSide, setSelectedSide] = useState<BetSide | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
-  // 배팅 마감 카운트다운 타이머
+  // Bet validation
+  const getValidationMessage = (): string | null => {
+    if (!isConnected) return 'Please connect your wallet';
+    if (selectedSide === null) return 'Please select a side to bet on';
+    if (betAmount === '') return 'Please enter a bet amount';
+    const amount = parseFloat(betAmount);
+    if (isNaN(amount) || amount <= 0) return 'Please enter a valid amount';
+    if (amount < 0.001) return 'Minimum bet is 0.001 MON';
+    if (amount > 10) return 'Maximum bet is 10 MON';
+    if (balance !== undefined) {
+      const balanceMon = parseFloat(formatEther(balance));
+      if (amount > balanceMon) return 'Insufficient balance';
+    }
+    return null;
+  };
+  const validationMessage = getValidationMessage();
+
+  // Betting deadline countdown timer
   useEffect(() => {
     if (!bettingDeadline) {
       setTimeRemaining(null);
@@ -70,7 +87,7 @@ export function BettingPanel({
     };
   }, [bettingDeadline]);
 
-  // 트랜잭션 확인 완료 시 상태 업데이트
+  // Update state on transaction confirmation
   useEffect(() => {
     if (isConfirmed && selectedSide !== null && betAmount !== '') {
       const amountWei = parseEther(betAmount);
@@ -78,11 +95,10 @@ export function BettingPanel({
       addBetToHistory(matchId, selectedSide, amountWei);
       setBetAmount('');
       setSelectedSide(null);
-      // 배팅 확인 사운드는 이미 handlePlaceBet에서 재생
     }
   }, [isConfirmed, selectedSide, betAmount, matchId, setMyBet, addBetToHistory]);
 
-  // 정산 결과 사운드
+  // Settlement result sound
   useEffect(() => {
     if (!settlement) return;
 
@@ -93,20 +109,20 @@ export function BettingPanel({
     }
   }, [settlement, sfx]);
 
-  // MON 단위로 포맷 (wei -> MON)
+  // Format MON (wei -> MON)
   const formatMon = (wei: bigint): string => {
     return parseFloat(formatEther(wei)).toFixed(3);
   };
 
-  // 배팅 상태 텍스트
+  // Betting status text
   const getStatusText = (): string => {
-    if (timeRemaining !== null && timeRemaining === 0) return '배팅 마감';
-    if (isLocked) return '배팅 잠금';
-    if (pool === null) return '로딩 중...';
-    return '배팅 접수 중';
+    if (timeRemaining !== null && timeRemaining === 0) return 'Betting Closed';
+    if (isLocked) return 'Betting Locked';
+    if (pool === null) return 'Loading...';
+    return 'Accepting Bets';
   };
 
-  // 배팅 상태 색상
+  // Betting status color
   const getStatusColor = (): string => {
     if (timeRemaining !== null && timeRemaining === 0) return '#ef4444';
     if (isLocked) return '#ef4444';
@@ -114,7 +130,7 @@ export function BettingPanel({
     return '#22d3ee';
   };
 
-  // 시간 포맷 (밀리초 -> MM:SS)
+  // Format time (ms -> MM:SS)
   const formatTime = (ms: number): string => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -122,7 +138,7 @@ export function BettingPanel({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // 배팅 제출 핸들러
+  // Place bet handler
   const handlePlaceBet = (): void => {
     if (!isConnected || selectedSide === null || betAmount === '') return;
 
@@ -133,11 +149,11 @@ export function BettingPanel({
       placeBet(BigInt(numericMatchId), side, amountWei);
       sfx.playBetPlaced();
     } catch (err) {
-      console.error('배팅 실패:', err);
+      console.error('Bet failed:', err);
     }
   };
 
-  // 상금 청구 핸들러
+  // Claim winnings handler
   const handleClaimWinnings = (): void => {
     if (settlement === null) return;
 
@@ -146,11 +162,11 @@ export function BettingPanel({
       claimWinnings(BigInt(numericMatchId));
       sfx.playPayoutClaimed();
     } catch (err) {
-      console.error('상금 청구 실패:', err);
+      console.error('Claim failed:', err);
     }
   };
 
-  // 배팅 가능 여부
+  // Whether betting is disabled
   const isBettingDisabled = isLocked || (timeRemaining !== null && timeRemaining === 0);
 
   return (
@@ -161,9 +177,9 @@ export function BettingPanel({
         borderLeft: '1px solid #2d2b6b',
       }}
     >
-      {/* 헤더 */}
+      {/* Header */}
       <div className="px-6 py-4 border-b border-arena-border">
-        <h2 className="text-xl font-bold text-white mb-2">배팅</h2>
+        <h2 className="text-xl font-bold text-white mb-2">Betting</h2>
         <div className="flex items-center gap-2">
           <div
             className="w-2 h-2 rounded-full animate-pulse"
@@ -175,9 +191,9 @@ export function BettingPanel({
         </div>
       </div>
 
-      {/* 스크롤 가능한 컨텐츠 영역 */}
+      {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-        {/* 알림 토스트 */}
+        {/* Notification toast */}
         {notification && (
           <div
             className={`p-4 rounded-lg border-l-4 flex items-center gap-3 animate-slide-in ${
@@ -203,7 +219,7 @@ export function BettingPanel({
           </div>
         )}
 
-        {/* 배팅 마감 카운트다운 */}
+        {/* Betting deadline countdown */}
         {timeRemaining !== null && timeRemaining > 0 && (
           <div
             className={`p-4 rounded-lg text-center ${
@@ -214,7 +230,7 @@ export function BettingPanel({
               border: timeRemaining < 30000 ? '1px solid #8b5cf6' : 'none',
             }}
           >
-            <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">남은 시간</div>
+            <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Time Remaining</div>
             <div
               className="text-3xl font-display font-bold"
               style={{
@@ -225,12 +241,12 @@ export function BettingPanel({
             </div>
           </div>
         )}
-        {/* 배당률 표시 */}
+        {/* Odds display */}
         {pool && (
           <div className="space-y-3">
-            <div className="text-xs text-gray-400 uppercase tracking-wider">현재 배당률</div>
+            <div className="text-xs text-gray-400 uppercase tracking-wider">Current Odds</div>
 
-            {/* Agent A 배당률 */}
+            {/* Agent A odds */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-white">{agentAName}</span>
@@ -246,7 +262,7 @@ export function BettingPanel({
               </div>
             </div>
 
-            {/* Agent B 배당률 */}
+            {/* Agent B odds */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-white">{agentBName}</span>
@@ -264,16 +280,16 @@ export function BettingPanel({
           </div>
         )}
 
-        {/* 총 배팅 풀 */}
+        {/* Total betting pool */}
         {pool && (
           <div className="p-4 rounded-lg" style={{ backgroundColor: '#111128' }}>
-            <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">총 배팅 풀</div>
+            <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Total Pool</div>
             <div className="text-2xl font-bold text-white">{formatMon(pool.totalPool)} MON</div>
-            <div className="text-xs text-gray-400 mt-1">{pool.betCount}개 배팅</div>
+            <div className="text-xs text-gray-400 mt-1">{pool.betCount} bets</div>
           </div>
         )}
 
-        {/* 정산 결과 오버레이 */}
+        {/* Settlement result overlay */}
         {settlement && (
           <div
             className={`p-6 rounded-lg border-2 ${
@@ -286,15 +302,15 @@ export function BettingPanel({
               <div className="text-4xl">{settlement.isWin ? '🎉' : '😢'}</div>
               <div>
                 <div className="text-xl font-bold text-white mb-2">
-                  {settlement.isWin ? '축하합니다!' : '아쉽습니다'}
+                  {settlement.isWin ? 'Congratulations!' : 'Better luck next time'}
                 </div>
                 {settlement.isWin && settlement.myPayout !== null && (
                   <div className="text-2xl font-bold text-green-400">
-                    {formatMon(settlement.myPayout)} MON 획득!
+                    Won {formatMon(settlement.myPayout)} MON!
                   </div>
                 )}
                 {!settlement.isWin && (
-                  <div className="text-sm text-gray-400">다음 기회를 노려보세요</div>
+                  <div className="text-sm text-gray-400">Try again next match</div>
                 )}
               </div>
               {settlement.isWin && settlement.myPayout !== null && (
@@ -307,27 +323,27 @@ export function BettingPanel({
                     boxShadow: '0 0 20px rgba(16, 185, 129, 0.5)',
                   }}
                 >
-                  {isPending || isConfirming ? '처리 중...' : '상금 수령'}
+                  {isPending || isConfirming ? 'Processing...' : 'Claim Winnings'}
                 </button>
               )}
               <button
                 onClick={clearSettlement}
                 className="text-sm text-gray-400 hover:text-white transition-colors"
               >
-                닫기
+                Close
               </button>
             </div>
           </div>
         )}
 
-        {/* 배팅 입력 폼 */}
+        {/* Betting input form */}
         {!isConnected ? (
           <div className="p-4 rounded-lg text-center" style={{ backgroundColor: '#111128' }}>
-            <p className="text-sm text-gray-400">배팅하려면 지갑을 연결하세요</p>
+            <p className="text-sm text-gray-400">Connect your wallet to place bets</p>
           </div>
         ) : myBet ? (
           <div className="p-4 rounded-lg" style={{ backgroundColor: '#111128' }}>
-            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">내 배팅</div>
+            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">My Bet</div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-white">
                 {myBet.side === 'agentA' ? agentAName : agentBName}
@@ -340,15 +356,15 @@ export function BettingPanel({
         ) : (
           !isBettingDisabled && (
             <div className="space-y-4">
-              {/* 지갑 잔액 표시 */}
+              {/* Wallet balance display */}
               {balance !== undefined && (
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-400">잔액:</span>
+                  <span className="text-gray-400">Balance:</span>
                   <span className="text-white font-semibold">{formatMon(balance)} MON</span>
                 </div>
               )}
 
-              {/* 트랜잭션 상태 표시 */}
+              {/* Transaction status display */}
               {(isPending || isConfirming || isConfirmed || error) && (
                 <div
                   className={`p-4 rounded-lg border ${
@@ -362,14 +378,14 @@ export function BettingPanel({
                   {isPending && (
                     <div className="flex items-center gap-3">
                       <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                      <span className="text-sm text-white">지갑에서 서명 중...</span>
+                      <span className="text-sm text-white">Signing in wallet...</span>
                     </div>
                   )}
                   {isConfirming && !isPending && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-3">
                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                        <span className="text-sm text-white">트랜잭션 전송 중...</span>
+                        <span className="text-sm text-white">Sending transaction...</span>
                       </div>
                       {txHash && (
                         <a
@@ -386,21 +402,21 @@ export function BettingPanel({
                   {isConfirmed && !isPending && !isConfirming && (
                     <div className="flex items-center gap-3">
                       <span className="text-xl">✅</span>
-                      <span className="text-sm text-white font-semibold">배팅 완료!</span>
+                      <span className="text-sm text-white font-semibold">Bet confirmed!</span>
                     </div>
                   )}
                   {error && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-3">
                         <span className="text-xl">❌</span>
-                        <span className="text-sm text-white">트랜잭션 실패</span>
+                        <span className="text-sm text-white">Transaction failed</span>
                       </div>
                       <p className="text-xs text-red-300">{error.message}</p>
                       <button
                         onClick={() => { handlePlaceBet(); }}
                         className="text-xs text-blue-400 hover:text-blue-300 underline"
                       >
-                        재시도
+                        Retry
                       </button>
                     </div>
                   )}
@@ -409,12 +425,17 @@ export function BettingPanel({
 
               <div>
                 <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">
-                  배팅 금액 (MON)
+                  Bet Amount (MON)
                 </label>
                 <input
                   type="number"
                   value={betAmount}
-                  onChange={(e) => { setBetAmount(e.target.value); }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || (parseFloat(val) >= 0 && parseFloat(val) <= 10)) {
+                      setBetAmount(val);
+                    }
+                  }}
                   placeholder="0.001"
                   step="0.001"
                   min="0.001"
@@ -426,7 +447,7 @@ export function BettingPanel({
 
               <div>
                 <label className="block text-xs text-gray-400 uppercase tracking-wider mb-2">
-                  배팅 대상 선택
+                  Select Side
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -462,44 +483,47 @@ export function BettingPanel({
 
               <button
                 onClick={() => { handlePlaceBet(); }}
-                disabled={betAmount === '' || selectedSide === null || isPending || isConfirming}
+                disabled={validationMessage !== null || isPending || isConfirming}
                 className="w-full px-6 py-4 rounded-lg font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   background:
-                    betAmount !== '' && selectedSide !== null && !isPending && !isConfirming
+                    validationMessage === null && !isPending && !isConfirming
                       ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)'
                       : '#2d2b6b',
                   boxShadow:
-                    betAmount !== '' && selectedSide !== null && !isPending && !isConfirming
+                    validationMessage === null && !isPending && !isConfirming
                       ? '0 0 20px rgba(139, 92, 246, 0.5)'
                       : 'none',
                 }}
               >
-                {isPending || isConfirming ? '처리 중...' : '배팅하기'}
+                {isPending || isConfirming ? 'Processing...' : 'Place Bet'}
               </button>
+              {validationMessage && !isPending && !isConfirming && (
+                <p className="text-center text-xs text-gray-500 mt-2">{validationMessage}</p>
+              )}
             </div>
           )
         )}
 
-        {/* 배팅 마감 안내 */}
+        {/* Betting closed notice */}
         {isBettingDisabled && !myBet && isConnected && (
           <div className="p-4 rounded-lg text-center" style={{ backgroundColor: '#111128' }}>
-            <p className="text-sm text-gray-400">배팅이 마감되었습니다</p>
+            <p className="text-sm text-gray-400">Betting is closed</p>
           </div>
         )}
 
-        {/* 배팅 규칙 안내 */}
+        {/* Betting rules */}
         <div
           className="p-4 rounded-lg text-xs text-gray-400 space-y-2"
           style={{ backgroundColor: '#111128' }}
         >
-          <div className="font-semibold text-gray-300 mb-2">배팅 규칙</div>
+          <div className="font-semibold text-gray-300 mb-2">Betting Rules</div>
           <ul className="space-y-1 list-disc list-inside">
-            <li>최소 배팅: 0.001 MON</li>
-            <li>최대 배팅: 10 MON</li>
-            <li>매치당 1회만 배팅 가능</li>
-            <li>배팅 잠금 후 취소 불가</li>
-            <li>플랫폼 수수료: 5%</li>
+            <li>Minimum bet: 0.001 MON</li>
+            <li>Maximum bet: 10 MON</li>
+            <li>One bet per match</li>
+            <li>No cancellations after lock</li>
+            <li>Platform fee: 5%</li>
           </ul>
         </div>
       </div>

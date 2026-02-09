@@ -1,4 +1,4 @@
-/** 브래킷 매치 노드 컴포넌트 */
+/** Bracket match node component */
 
 import { Link } from 'react-router-dom';
 import type { BracketMatch } from '@/types/tournament';
@@ -8,18 +8,18 @@ interface MatchNodeProps {
 }
 
 /**
- * 매치 노드 컴포넌트
- * - 브래킷 내 단일 매치 표시
- * - 상태별 스타일링 (pending/betting/active/completed)
- * - 클릭 시 매치 상세 페이지로 이동
+ * Match node component
+ * - Displays a single match within a bracket
+ * - Status-based styling (pending/betting/active/completed)
+ * - Navigates to match detail page on click
  */
 export function MatchNode({ match }: MatchNodeProps) {
   const { agentA, agentB, winner, status } = match;
 
-  // TBD 매치인지 확인
+  // Check if match is TBD
   const isTBD = agentA.name === 'TBD' || agentB.name === 'TBD';
 
-  // 상태별 스타일
+  // Status-based styles
   const getStatusStyle = () => {
     switch (status) {
       case 'active':
@@ -34,31 +34,31 @@ export function MatchNode({ match }: MatchNodeProps) {
     }
   };
 
-  // 상태 인디케이터
+  // Status indicator
   const StatusIndicator = () => {
     switch (status) {
       case 'active':
         return (
           <div className="flex items-center gap-1">
             <div className="h-2 w-2 animate-pulse rounded-full bg-ghost-neon"></div>
-            <span className="text-xs text-ghost-neon">진행중</span>
+            <span className="text-xs text-ghost-neon">Live</span>
           </div>
         );
       case 'betting':
         return (
           <div className="flex items-center gap-1">
             <div className="h-2 w-2 rounded-full bg-ghost-orange"></div>
-            <span className="text-xs text-ghost-orange">베팅중</span>
+            <span className="text-xs text-ghost-orange">Betting</span>
           </div>
         );
       case 'completed':
-        return <span className="text-xs text-green-400">✓ 완료</span>;
+        return <span className="text-xs text-green-400">Done</span>;
       default:
-        return <span className="text-xs text-gray-500">대기중</span>;
+        return <span className="text-xs text-gray-500">Pending</span>;
     }
   };
 
-  // TBD 매치는 클릭 불가
+  // TBD matches are not clickable
   const content = (
     <div
       className={`
@@ -68,7 +68,7 @@ export function MatchNode({ match }: MatchNodeProps) {
         ${!isTBD && status !== 'pending' ? 'card-hover cursor-pointer' : 'opacity-60'}
       `}
     >
-      {/* 상태 인디케이터 */}
+      {/* Status indicator */}
       <div className="mb-2 flex justify-center">
         <StatusIndicator />
       </div>
@@ -99,7 +99,7 @@ export function MatchNode({ match }: MatchNodeProps) {
         {agentB.score !== null && <span className="ml-2 text-xs font-bold">{agentB.score}</span>}
       </div>
 
-      {/* 승자 표시 */}
+      {/* Winner indicator */}
       {winner && (
         <div className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-ghost-neon text-xs">
           👑
@@ -108,7 +108,7 @@ export function MatchNode({ match }: MatchNodeProps) {
     </div>
   );
 
-  // TBD나 pending이 아닌 경우만 링크로 감싸기
+  // Only wrap with link if not TBD and not pending
   if (!isTBD && status !== 'pending') {
     return <Link to={`/match/${match.id}`}>{content}</Link>;
   }

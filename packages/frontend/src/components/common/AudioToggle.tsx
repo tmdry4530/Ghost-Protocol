@@ -24,7 +24,7 @@ export function AudioToggle() {
       toggleMute();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      console.warn(`[AudioToggle] 토글 실패: ${msg}`);
+      console.warn(`[AudioToggle] Toggle failed: ${msg}`);
     }
   };
 
@@ -41,8 +41,8 @@ export function AudioToggle() {
             : 'bg-ghost-violet text-ghost-neon shadow-[0_0_12px_rgba(0,255,157,0.6)] hover:shadow-[0_0_16px_rgba(0,255,157,0.8)]'
         }
       `}
-      title={muted ? '소리 켜기' : '소리 끄기'}
-      aria-label={muted ? '소리 켜기' : '소리 끄기'}
+      title={muted ? 'Unmute' : 'Mute'}
+      aria-label={muted ? 'Unmute' : 'Mute'}
     >
       {muted ? <SpeakerMutedIcon /> : <SpeakerIcon />}
     </button>

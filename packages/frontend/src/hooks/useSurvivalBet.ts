@@ -62,6 +62,8 @@ interface UseSurvivalBetReturn {
   isConfirmed: boolean;
   /** 에러 */
   error: Error | null;
+  /** 트랜잭션 상태 초기화 */
+  reset: () => void;
 }
 
 /**
@@ -103,7 +105,7 @@ interface UseSurvivalBetReturn {
  */
 export function useSurvivalBet(): UseSurvivalBetReturn {
   const { address } = useAccount();
-  const { writeContract, data: txHash, isPending, error } = useWriteContract();
+  const { writeContract, data: txHash, isPending, error, reset } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash: txHash,
   });
@@ -276,7 +278,7 @@ export function useSurvivalBet(): UseSurvivalBetReturn {
         args: [sessionId, address],
       });
 
-      return data as bigint;
+      return data;
     } catch (error) {
       console.error('상금 계산 실패:', error);
       return null;
@@ -295,5 +297,6 @@ export function useSurvivalBet(): UseSurvivalBetReturn {
     isConfirming,
     isConfirmed,
     error,
+    reset,
   };
 }

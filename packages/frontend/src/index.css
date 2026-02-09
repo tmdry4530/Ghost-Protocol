@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
-/* Ghost Protocol 커스텀 테마 */
+/* Ghost Protocol custom theme */
 @theme {
-  /* 기존 색상 */
+  /* Base colors */
   --color-ghost-violet: #8b5cf6;
   --color-ghost-violet-dark: #6d28d9;
   --color-ghost-blue: #3b82f6;
@@ -15,16 +15,30 @@
   --color-arena-wall: #4338ca;
   --color-arena-pellet: #fbbf24;
 
-  /* 추가 표면 색상 */
+  /* Surface colors */
   --color-arena-surface: #111128;
   --color-arena-card: #1a1a3e;
   --color-arena-border: #2d2b6b;
 
-  /* 폰트 패밀리 */
-  --font-display: 'Press Start 2P', monospace;
+  /* Neon colors */
+  --color-neon-purple: #7c3aed;
+  --color-neon-yellow: #fbbf24;
+  --color-dark-bg: #0a0a0f;
+  --color-dark-surface: #141425;
+  --color-dark-surface-2: #1e1e3a;
+  --color-muted-foreground: #71717a;
+
+  /* Font family */
+  --font-display: 'Orbitron', sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
 }
 
-/* 네온 글로우 애니메이션 */
+/* Body font */
+body {
+  font-family: var(--font-body);
+}
+
+/* Neon glow animations */
 @keyframes neon-pulse {
   0%, 100% {
     box-shadow: 0 0 5px var(--color-ghost-violet),
@@ -52,7 +66,7 @@
   }
 }
 
-/* 유틸리티 클래스 */
+/* Utility classes */
 .neon-glow {
   box-shadow: 0 0 5px var(--color-ghost-violet),
               0 0 10px var(--color-ghost-violet),
@@ -78,7 +92,7 @@
               0 0 30px var(--color-ghost-violet);
 }
 
-/* 스크롤바 스타일링 */
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -97,13 +111,13 @@
   background: var(--color-ghost-violet-dark);
 }
 
-/* Firefox 스크롤바 */
+/* Firefox scrollbar */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-ghost-violet) var(--color-arena-bg);
 }
 
-/* 선택 영역 스타일링 */
+/* Selection styling */
 ::selection {
   background-color: var(--color-ghost-violet);
   color: white;
@@ -114,7 +128,7 @@
   color: white;
 }
 
-/* 서바이벌 모드 애니메이션 */
+/* Survival mode animations */
 @keyframes pulse-slow {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.8; }
@@ -159,6 +173,72 @@
   }
 }
 
+@keyframes text-glow-pulse {
+  0%, 100% {
+    text-shadow: 0 0 8px rgba(124,58,237,0.6), 0 0 24px rgba(124,58,237,0.3), 0 0 48px rgba(124,58,237,0.15);
+  }
+  50% {
+    text-shadow: 0 0 16px rgba(124,58,237,0.8), 0 0 32px rgba(124,58,237,0.5), 0 0 64px rgba(124,58,237,0.3);
+  }
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes float-ghost {
+  0%, 100% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+    opacity: 0.15;
+  }
+  25% {
+    transform: translateY(-30px) translateX(15px) rotate(5deg);
+    opacity: 0.25;
+  }
+  50% {
+    transform: translateY(-15px) translateX(-10px) rotate(-3deg);
+    opacity: 0.1;
+  }
+  75% {
+    transform: translateY(-40px) translateX(20px) rotate(8deg);
+    opacity: 0.2;
+  }
+}
+
+@keyframes scroll-ticker {
+  0% { transform: translate(0); }
+  100% { transform: translate(-50%); }
+}
+
+@keyframes neon-pulse-anim {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(124,58,237,0.4), 0 0 24px rgba(124,58,237,0.2), 0 0 48px rgba(124,58,237,0.1);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(124,58,237,0.6), 0 0 32px rgba(124,58,237,0.3), 0 0 56px rgba(124,58,237,0.15);
+  }
+}
+
+@keyframes neon-pulse-yellow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(251,191,36,0.4), 0 0 24px rgba(251,191,36,0.2), 0 0 48px rgba(251,191,36,0.1);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(251,191,36,0.6), 0 0 32px rgba(251,191,36,0.3), 0 0 56px rgba(251,191,36,0.15);
+  }
+}
+
+@keyframes scanline-anim {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes scanline-move {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
 .animate-pulse-slow {
   animation: pulse-slow 4s ease-in-out infinite;
 }
@@ -177,4 +257,56 @@
 
 .animate-float {
   animation: float 2s ease-in-out infinite;
+}
+
+/* Scanline overlay */
+.scanline-overlay::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: rgba(124, 58, 237, 0.04);
+  animation: scanline-move 8s linear infinite;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* Grid background */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(124,58,237,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,58,237,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* Neon text purple */
+.neon-text-purple {
+  text-shadow: 0 0 8px rgba(124,58,237,0.6), 0 0 24px rgba(124,58,237,0.3);
+}
+
+/* Animation utilities */
+.animate-float-ghost {
+  animation: float-ghost var(--ghost-duration, 7s) ease-in-out infinite;
+}
+
+.animate-scroll-ticker {
+  animation: scroll-ticker 30s linear infinite;
+}
+
+.animate-dot-pulse {
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+.animate-text-glow {
+  animation: text-glow-pulse 3s ease-in-out infinite;
+}
+
+.animate-neon-pulse {
+  animation: neon-pulse-anim 2s ease-in-out infinite;
+}
+
+.animate-neon-pulse-yellow {
+  animation: neon-pulse-yellow 2s ease-in-out infinite;
 }

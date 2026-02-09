@@ -15,10 +15,13 @@ import { GameScene } from './scenes/GameScene';
 import { MAZE_WIDTH, MAZE_HEIGHT } from '@ghost-protocol/shared';
 
 /** 각 타일의 픽셀 크기 (GameScene과 동일) */
-const TILE_SIZE = 20;
+const TILE_SIZE = 24;
 
 /** 모듈 레벨 Phaser 게임 인스턴스 참조 (GameContainer에서 씬 접근용) */
 let activeGameInstance: Phaser.Game | null = null;
+
+/** Phaser 초기화 진행 중 플래그 (React Strict Mode 이중 마운트 방어) */
+let isInitializing = false;
 
 /** 현재 활성 Phaser 게임 인스턴스 반환 */
 export function getActiveGame(): Phaser.Game | null {
@@ -31,8 +34,19 @@ export function PhaserGame() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // 이미 생성되었거나 컨테이너가 없으면 생략
-    if (!containerRef.current || gameRef.current) return;
+    if (!containerRef.current) return;
+
+    // React 18 Strict Mode 이중 마운트 방어:
+    // cleanup 후 재실행 시 이전 인스턴스가 아직 정리 중일 수 있음
+    if (gameRef.current || isInitializing) return;
+
+    // 이전 인스턴스의 잔여 캔버스가 남아있으면 제거
+    const existingCanvas = containerRef.current.querySelector('canvas');
+    if (existingCanvas) {
+      existingCanvas.remove();
+    }
+
+    isInitializing = true;
 
     /** Phaser 게임 설정 */
     const config: Phaser.Types.Core.GameConfig = {
@@ -59,6 +73,7 @@ export function PhaserGame() {
 
     gameRef.current = new Phaser.Game(config);
     activeGameInstance = gameRef.current;
+    isInitializing = false;
 
     // 언마운트 시 Phaser 인스턴스 정리
     return () => {

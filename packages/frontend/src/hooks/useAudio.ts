@@ -68,7 +68,7 @@ export function useAudio() {
   // muted 상태 동기화
   useEffect(() => {
     const engine = audioEngineRef.current;
-    if (!engine) return;
+    if (!engine || !engine.isReady()) return;
 
     try {
       if (muted) {
@@ -85,7 +85,7 @@ export function useAudio() {
   // volume 상태 동기화 (dB 변환: 0-1 → -60 ~ 0 dB)
   useEffect(() => {
     const engine = audioEngineRef.current;
-    if (!engine) return;
+    if (!engine || !engine.isReady()) return;
 
     try {
       // 0.0 → -60dB, 1.0 → 0dB (로그 스케일)
@@ -96,6 +96,24 @@ export function useAudio() {
       console.warn(`[useAudio] 볼륨 동기화 실패: ${msg}`);
     }
   }, [volume]);
+
+  // 컴포넌트 언마운트 시 오디오 리소스 정리
+  useEffect(() => {
+    return () => {
+      try {
+        musicRef.current?.dispose();
+        musicRef.current = null;
+      } catch {
+        // 이미 해제된 리소스 무시
+      }
+      try {
+        sfxRef.current?.dispose();
+        sfxRef.current = null;
+      } catch {
+        // 이미 해제된 리소스 무시
+      }
+    };
+  }, []);
 
   const toggleMute = useCallback(() => {
     useAudioStore.getState().toggleMute();

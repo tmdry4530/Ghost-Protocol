@@ -8,20 +8,20 @@ import { useGameAudio } from '../../hooks/useGameAudio.js';
 import { useAudio } from '../../hooks/useAudio.js';
 import type { Direction } from '@ghost-protocol/shared';
 
-/** 게임 컨테이너 - WebSocket 기반 서버 상태 렌더링 */
+/** Game container - WebSocket-based server state rendering */
 export function GameContainer() {
   const { isPlaying, difficulty, sessionId, startGame, stopGame, setSessionId, gameState } =
     useGameStore();
   const lastInputRef = useRef<Direction | null>(null);
 
-  // 게임 이벤트 → 오디오 트리거 연결
+  // Game event -> audio trigger connection
   useGameAudio();
   const { music, initialized: audioReady } = useAudio();
 
-  // WebSocket 연결 (sessionId가 있을 때만)
+  // WebSocket connection (only when sessionId exists)
   const { connected, sendInput } = useGameSocket({ sessionId: sessionId ?? undefined });
 
-  // 서버 세션 생성 및 게임 시작
+  // Create server session and start game
   const handleStartGame = useCallback(async () => {
     try {
       const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001/api/v1';
@@ -32,18 +32,18 @@ export function GameContainer() {
       });
 
       if (!response.ok) {
-        throw new Error(`서버 세션 생성 실패: ${String(response.status)}`);
+        throw new Error(`Failed to create server session: ${String(response.status)}`);
       }
 
       const data = (await response.json()) as { sessionId: string };
       setSessionId(data.sessionId);
       startGame();
     } catch (error) {
-      console.error('게임 시작 실패:', error);
+      console.error('Failed to start game:', error);
     }
   }, [difficulty, setSessionId, startGame]);
 
-  // 키보드 입력을 서버로 전송
+  // Send keyboard input to server
   useEffect(() => {
     if (!isPlaying || !connected) return;
 
@@ -58,7 +58,7 @@ export function GameContainer() {
       }
     };
 
-    // 입력 폴링 (60fps)
+    // Input polling (60fps)
     const intervalId = window.setInterval(sendInputToServer, 16);
 
     return () => {
@@ -66,7 +66,7 @@ export function GameContainer() {
     };
   }, [isPlaying, connected, sendInput]);
 
-  // 게임 상태 변경 시 Phaser 씬 업데이트
+  // Update Phaser scene on game state change
   useEffect(() => {
     if (!gameState) return;
 
@@ -76,7 +76,7 @@ export function GameContainer() {
     }
   }, [gameState]);
 
-  // BGM 시작/정지 (게임 진행 상태에 연동)
+  // Start/stop BGM (linked to game play state)
   useEffect(() => {
     if (!audioReady) return;
 
@@ -87,7 +87,7 @@ export function GameContainer() {
     }
   }, [isPlaying, music, audioReady]);
 
-  // SPACE 키로 게임 시작/재시작
+  // Start/restart game with SPACE key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
@@ -124,7 +124,7 @@ export function GameContainer() {
 
       {!isPlaying && (
         <div className="mt-6 text-center">
-          <p className="text-gray-400 text-sm mb-2">Arrow Keys or WASD to move</p>
+          <p className="text-gray-400 text-sm mb-2">Use arrow keys or WASD to move</p>
           <button
             onClick={() => {
               void handleStartGame();
@@ -132,7 +132,7 @@ export function GameContainer() {
             className="px-6 py-3 text-white font-bold rounded-lg transition-all hover:scale-105"
             style={{ backgroundColor: '#8B5CF6' }}
           >
-            START GAME
+            Start Game
           </button>
         </div>
       )}
@@ -140,7 +140,7 @@ export function GameContainer() {
   );
 }
 
-/** Phaser 게임 인스턴스에서 GameScene 가져오기 */
+/** Get GameScene from Phaser game instance */
 function getGameScene(): GameScene | null {
   const game = getActiveGame();
   if (!game) return null;

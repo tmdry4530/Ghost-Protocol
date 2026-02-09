@@ -359,18 +359,25 @@ export class MusicEngine {
   dispose(): void {
     try {
       this.stop();
-
-      this.melodySequence.dispose();
-      this.melodySynth.dispose();
-      this.bassSequence.dispose();
-      this.bassSynth.dispose();
-      this.hihatLoop.dispose();
-      this.hihatSynth.dispose();
-      this.padSequence.dispose();
-      this.padSynth.dispose();
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.warn(`[MusicEngine] 리소스 해제 실패: ${msg}`);
+    } catch {
+      // stop 실패 무시
     }
+
+    const safeDispose = (node: { dispose: () => void }): void => {
+      try {
+        node.dispose();
+      } catch {
+        // 이미 해제되거나 닫힌 컨텍스트 무시
+      }
+    };
+
+    safeDispose(this.melodySequence);
+    safeDispose(this.melodySynth);
+    safeDispose(this.bassSequence);
+    safeDispose(this.bassSynth);
+    safeDispose(this.hihatLoop);
+    safeDispose(this.hihatSynth);
+    safeDispose(this.padSequence);
+    safeDispose(this.padSynth);
   }
 }

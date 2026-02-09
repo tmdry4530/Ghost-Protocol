@@ -57,6 +57,8 @@ interface UseWagerPoolReturn {
   isConfirmed: boolean;
   /** 에러 */
   error: Error | null;
+  /** 트랜잭션 상태 초기화 */
+  reset: () => void;
 }
 
 /**
@@ -88,7 +90,7 @@ interface UseWagerPoolReturn {
  */
 export function useWagerPool(): UseWagerPoolReturn {
   const { address } = useAccount();
-  const { writeContract, data: txHash, isPending, error } = useWriteContract();
+  const { writeContract, data: txHash, isPending, error, reset } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash: txHash,
   });
@@ -215,5 +217,6 @@ export function useWagerPool(): UseWagerPoolReturn {
     isConfirming,
     isConfirmed,
     error,
+    reset,
   };
 }

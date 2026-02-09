@@ -10,13 +10,6 @@ import type {
   FeedItem,
   AgentRanking,
 } from '@/types/dashboard';
-import {
-  mockMatches,
-  mockTournaments,
-  mockSurvivalSessions,
-  mockFeedItems,
-  mockAgentRankings,
-} from '@/data/mockDashboard';
 
 /** 토너먼트 필터 타입 */
 export type TournamentFilter = 'all' | 'active' | 'upcoming' | 'completed';
@@ -48,8 +41,6 @@ interface DashboardState {
   setTournamentFilter: (filter: TournamentFilter) => void;
   /** 필터링된 토너먼트 가져오기 */
   getFilteredTournaments: () => TournamentInfo[];
-  /** Mock 데이터 로드 */
-  loadMockData: () => void;
 }
 
 /**
@@ -96,13 +87,4 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     if (tournamentFilter === 'all') return tournaments;
     return tournaments.filter((t) => t.status === tournamentFilter);
   },
-
-  loadMockData: () =>
-    { set({
-      matches: mockMatches,
-      tournaments: mockTournaments,
-      survivalSessions: mockSurvivalSessions,
-      agentRankings: mockAgentRankings,
-      feedItems: mockFeedItems,
-    }); },
 }));

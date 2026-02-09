@@ -346,21 +346,24 @@ export class SoundEffects {
    * 컴포넌트 언마운트 시 호출하여 메모리 누수를 방지한다.
    */
   dispose(): void {
-    try {
-      this.wakaSynth.dispose();
-      this.ghostSynth.dispose();
-      this.deathSynth.dispose();
-      this.fruitSynth.dispose();
-      this.powerUpSynth.dispose();
-      this.betSynth.dispose();
-      this.lockNoiseSynth.dispose();
-      this.lockToneSynth.dispose();
-      this.winSynth.dispose();
-      this.lossSynth.dispose();
-      this.payoutSynth.dispose();
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.warn(`[SoundEffects] 리소스 해제 실패: ${msg}`);
-    }
+    const safeDispose = (node: { dispose: () => void }): void => {
+      try {
+        node.dispose();
+      } catch {
+        // 이미 해제되거나 닫힌 컨텍스트 무시
+      }
+    };
+
+    safeDispose(this.wakaSynth);
+    safeDispose(this.ghostSynth);
+    safeDispose(this.deathSynth);
+    safeDispose(this.fruitSynth);
+    safeDispose(this.powerUpSynth);
+    safeDispose(this.betSynth);
+    safeDispose(this.lockNoiseSynth);
+    safeDispose(this.lockToneSynth);
+    safeDispose(this.winSynth);
+    safeDispose(this.lossSynth);
+    safeDispose(this.payoutSynth);
   }
 }

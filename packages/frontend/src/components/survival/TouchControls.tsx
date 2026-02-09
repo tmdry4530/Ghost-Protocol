@@ -1,24 +1,24 @@
 /**
- * 모바일 터치 컨트롤 (D-pad)
- * 화면 하단에 방향 입력 버튼 표시
+ * Mobile touch controls (D-pad)
+ * Directional input buttons displayed at bottom of screen
  */
 import { useState, useEffect } from 'react';
 import type { Direction } from '@ghost-protocol/shared';
 
 interface TouchControlsProps {
-  /** 방향 변경 콜백 */
+  /** Direction change callback */
   onDirectionChange: (direction: Direction | null) => void;
 }
 
 /**
- * 모바일용 온스크린 방향 컨트롤 컴포넌트
- * 768px 미만 화면에서만 표시
+ * Mobile on-screen directional control component
+ * Displayed only on screens smaller than 768px
  */
 export function TouchControls({ onDirectionChange }: TouchControlsProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [activeDirection, setActiveDirection] = useState<Direction | null>(null);
 
-  // 화면 크기 감지
+  // Detect screen size
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -51,55 +51,55 @@ export function TouchControls({ onDirectionChange }: TouchControlsProps) {
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
       <div className="relative w-48 h-48">
-        {/* 위 */}
+        {/* Up */}
         <button
           onTouchStart={() => { handleTouchStart('up'); }}
           onTouchEnd={handleTouchEnd}
           className={`${buttonClass('up')} absolute top-0 left-1/2 -translate-x-1/2`}
-          aria-label="위로"
+          aria-label="Up"
         >
           <svg className="w-8 h-8 mx-auto text-white" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 3l6 6H4l6-6z" />
           </svg>
         </button>
 
-        {/* 아래 */}
+        {/* Down */}
         <button
           onTouchStart={() => { handleTouchStart('down'); }}
           onTouchEnd={handleTouchEnd}
           className={`${buttonClass('down')} absolute bottom-0 left-1/2 -translate-x-1/2`}
-          aria-label="아래로"
+          aria-label="Down"
         >
           <svg className="w-8 h-8 mx-auto text-white" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 17l-6-6h12l-6 6z" />
           </svg>
         </button>
 
-        {/* 왼쪽 */}
+        {/* Left */}
         <button
           onTouchStart={() => { handleTouchStart('left'); }}
           onTouchEnd={handleTouchEnd}
           className={`${buttonClass('left')} absolute left-0 top-1/2 -translate-y-1/2`}
-          aria-label="왼쪽으로"
+          aria-label="Left"
         >
           <svg className="w-8 h-8 mx-auto text-white" fill="currentColor" viewBox="0 0 20 20">
             <path d="M3 10l6-6v12l-6-6z" />
           </svg>
         </button>
 
-        {/* 오른쪽 */}
+        {/* Right */}
         <button
           onTouchStart={() => { handleTouchStart('right'); }}
           onTouchEnd={handleTouchEnd}
           className={`${buttonClass('right')} absolute right-0 top-1/2 -translate-y-1/2`}
-          aria-label="오른쪽으로"
+          aria-label="Right"
         >
           <svg className="w-8 h-8 mx-auto text-white" fill="currentColor" viewBox="0 0 20 20">
             <path d="M17 10l-6 6V4l6 6z" />
           </svg>
         </button>
 
-        {/* 중앙 원 (시각적 가이드) */}
+        {/* Center circle (visual guide) */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-arena-bg/50 border-2 border-ghost-violet/30" />
       </div>
     </div>
