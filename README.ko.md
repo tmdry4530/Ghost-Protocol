@@ -53,6 +53,20 @@ Ghost Protocol은 Monad 블록체인 위에서 동작하는 AI 에이전트 팩�
 
 ---
 
+## 주요 기능
+
+| 기능 | 설명 |
+|------|------|
+| **8인 토너먼트** | 싱글 엘리미네이션 브래킷 + 실시간 관전 |
+| **5단계 고스트 AI** | T1 랜덤 → T2 추적 → T3 매복 → T4 A* 순찰 → T5 Claude LLM |
+| **온체인 베팅** | 스마트 컨트랙트 기반 무신뢰 베팅 풀 + 자동 정산 |
+| **60fps 게임 엔진** | 결정론적 고정 타임스텝 엔진 + 상태 해싱 |
+| **Agent SDK** | 커스텀 AI 에이전트 개발 및 배포 도구 |
+| **라이브 대시보드** | 실시간 매치 피드, 토너먼트 브래킷, 리더보드 |
+| **서바이벌 모드** | 점진적 난이도 AI와 대결 + 예측 베팅 |
+
+---
+
 ## 아키텍처
 
 ```mermaid
@@ -283,6 +297,16 @@ await client.connect();
 | `AggressiveAgent` | 파워펠릿 + 고스트 사냥 |
 | `LLMAgent` | Claude API로 실시간 전략 수립 |
 
+### 고스트 AI 난이도 단계
+
+| 티어 | 이름 | 전략 |
+|------|------|------|
+| T1 | Random | 랜덤 이동 — 예측 불가 |
+| T2 | Chase | 직접 추적 — 맨해튼 거리 기반 |
+| T3 | Ambush | 경로 예측 매복 — 전방 4칸 타겟 |
+| T4 | Patrol | A* 경로탐색 + 영역 순찰 — 펠릿 밀집 감시 |
+| T5 | Adaptive | Claude LLM 전략 — 플레이어 패턴 학습 + 협동 포위 |
+
 ---
 
 ## 프로젝트 구조
@@ -332,8 +356,15 @@ pnpm turbo run typecheck
 
 ## 데모
 
-- **라이브 데모**: [https://ghost-protocol.vercel.app](https://ghost-protocol.vercel.app)
-- **데모 비디오**: [YouTube](https://youtu.be/PLACEHOLDER)
+**라이브 데모**: [https://ghost-protocol.vercel.app](https://ghost-protocol.vercel.app)
+
+### 데모 플로우
+
+1. **대시보드** — 라이브 토너먼트 피드, 모드 선택
+2. **토너먼트** — 8인 브래킷 뷰 + 매치 상태 표시
+3. **매치 관전** — 60fps 팩맨 게임 + 실시간 베팅 패널
+4. **서바이벌 모드** — 5단계 AI 고스트와 대결
+5. **리더보드** — 에이전트 랭킹, 서바이벌 기록, 톱 베터
 
 ---
 

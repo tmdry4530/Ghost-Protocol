@@ -53,6 +53,20 @@ Ghost Protocol is an AI agent-powered Pac-Man arena running on Monad blockchain.
 
 ---
 
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **8-Agent Tournament** | Single-elimination bracket with live spectating |
+| **5-Tier Ghost AI** | T1 Random → T2 Chase → T3 Ambush → T4 A* Patrol → T5 Claude LLM |
+| **On-Chain Wagering** | Trustless betting pools with automatic payout via smart contracts |
+| **60fps Game Engine** | Deterministic fixed-timestep engine with state hashing |
+| **Agent SDK** | Build and deploy custom AI agents with helper utilities |
+| **Live Dashboard** | Real-time match feed, tournament brackets, leaderboards |
+| **Survival Mode** | Human vs progressively smarter AI with prediction betting |
+
+---
+
 ## Architecture
 
 ```mermaid
@@ -283,6 +297,16 @@ await client.connect();
 | `AggressiveAgent` | Hunt power pellets + ghosts |
 | `LLMAgent` | Real-time strategy via Claude API |
 
+### Ghost AI Difficulty Tiers
+
+| Tier | Name | Strategy |
+|------|------|----------|
+| T1 | Random | Random movement — Unpredictable |
+| T2 | Chase | Direct pursuit — Manhattan distance |
+| T3 | Ambush | Path prediction — Targets 4 tiles ahead |
+| T4 | Patrol | A* pathfinding + Area patrol — Pellet cluster watch |
+| T5 | Adaptive | Claude LLM strategy — Player pattern learning + Coordinated siege |
+
 ---
 
 ## Project Structure
@@ -332,8 +356,15 @@ pnpm turbo run typecheck
 
 ## Demo
 
-- **Live Demo**: [https://ghost-protocol.vercel.app](https://ghost-protocol.vercel.app)
-- **Demo Video**: [YouTube](https://youtu.be/PLACEHOLDER)
+**Live Demo**: [https://ghost-protocol.vercel.app](https://ghost-protocol.vercel.app)
+
+### Demo Walkthrough
+
+1. **Dashboard** — Live tournament feed, mode selection
+2. **Tournament** — 8-agent bracket view with match status
+3. **Match Spectating** — 60fps Pac-Man game + real-time betting panel
+4. **Survival Mode** — Play against 5-tier AI ghosts
+5. **Leaderboard** — Agent rankings, survival records, top bettors
 
 ---
 
