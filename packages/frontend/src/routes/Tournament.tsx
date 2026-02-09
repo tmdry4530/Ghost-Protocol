@@ -78,7 +78,7 @@ export function Tournament() {
       try {
         // 에이전트 정보 가져오기
         const agentsRes = await fetch(`${API_URL}/agents`);
-        if (!agentsRes.ok) throw new Error('에이전트 목록 조회 실패');
+        if (!agentsRes.ok) throw new Error('Failed to fetch agent list');
         const agentsData = (await agentsRes.json()) as AgentsResponse;
         const newAgentsMap = new Map(agentsData.agents.map((a) => [a.address, a]));
 
@@ -86,7 +86,7 @@ export function Tournament() {
         let tournamentId = id;
         if (!id || id === 'current') {
           const listRes = await fetch(`${API_URL}/tournaments`);
-          if (!listRes.ok) throw new Error('토너먼트 목록 조회 실패');
+          if (!listRes.ok) throw new Error('Failed to fetch tournament list');
           const listData = (await listRes.json()) as TournamentsListResponse;
 
           // 활성 토너먼트 우선, 없으면 가장 최근 토너먼트
@@ -96,7 +96,7 @@ export function Tournament() {
 
           if (!tournamentId) {
             if (mounted) {
-              setError('활성 토너먼트가 없습니다');
+              setError('No active tournaments');
               setLoading(false);
             }
             return;
@@ -108,9 +108,9 @@ export function Tournament() {
         if (!tournamentRes.ok) {
           if (mounted) {
             if (tournamentRes.status === 404) {
-              setError('토너먼트를 찾을 수 없습니다');
+              setError('Tournament not found');
             } else {
-              throw new Error('토너먼트 조회 실패');
+              throw new Error('Failed to fetch tournament');
             }
             setLoading(false);
           }
@@ -127,7 +127,7 @@ export function Tournament() {
         }
       } catch (err) {
         if (mounted) {
-          setError(err instanceof Error ? err.message : 'API 연결 실패');
+          setError(err instanceof Error ? err.message : 'API connection failed');
           setLoading(false);
         }
       }
@@ -187,14 +187,14 @@ export function Tournament() {
       const bracketSize = tournament.bracketSize;
       let roundName = `Round ${String(round)}`;
       if (bracketSize === 8) {
-        if (round === 1) roundName = '8강';
-        else if (round === 2) roundName = '준결승';
-        else if (round === 3) roundName = '결승';
+        if (round === 1) roundName = 'Quarterfinals';
+        else if (round === 2) roundName = 'Semifinals';
+        else if (round === 3) roundName = 'Finals';
       } else if (bracketSize === 16) {
-        if (round === 1) roundName = '16강';
-        else if (round === 2) roundName = '8강';
-        else if (round === 3) roundName = '준결승';
-        else if (round === 4) roundName = '결승';
+        if (round === 1) roundName = 'Round of 16';
+        else if (round === 2) roundName = 'Quarterfinals';
+        else if (round === 3) roundName = 'Semifinals';
+        else if (round === 4) roundName = 'Finals';
       }
 
       rounds.push({ name: roundName, matches: bracketMatches });
@@ -213,7 +213,7 @@ export function Tournament() {
         <div className="flex min-h-[400px] items-center justify-center">
           <div className="text-center">
             <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-ghost-violet/20 border-t-ghost-violet"></div>
-            <p className="text-sm text-gray-400">토너먼트 데이터 로딩 중...</p>
+            <p className="text-sm text-gray-400">Loading tournament data...</p>
           </div>
         </div>
       </div>
@@ -318,26 +318,26 @@ export function Tournament() {
         {/* 토너먼트 정보 카드 */}
         <div className="lg:col-span-2">
           <div className="rounded-lg border border-ghost-violet/30 bg-arena-card p-6">
-            <h3 className="mb-4 text-lg font-bold text-white">토너먼트 정보</h3>
+            <h3 className="mb-4 text-lg font-bold text-white">Tournament Info</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-gray-400">브래킷 사이즈</p>
-                <p className="text-lg font-bold text-ghost-violet">{tournament.bracketSize}강</p>
+                <p className="text-xs text-gray-400">Bracket Size</p>
+                <p className="text-lg font-bold text-ghost-violet">{tournament.bracketSize}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400">참가자</p>
-                <p className="text-lg font-bold text-ghost-violet">{tournament.participants.length}명</p>
+                <p className="text-xs text-gray-400">Participants</p>
+                <p className="text-lg font-bold text-ghost-violet">{tournament.participants.length}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400">현재 라운드</p>
+                <p className="text-xs text-gray-400">Current Round</p>
                 <p className="text-lg font-bold text-ghost-violet">Round {tournament.currentRound}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400">총 매치</p>
-                <p className="text-lg font-bold text-ghost-violet">{tournament.matches.length}경기</p>
+                <p className="text-xs text-gray-400">Total Matches</p>
+                <p className="text-lg font-bold text-ghost-violet">{tournament.matches.length} matches</p>
               </div>
               <div className="col-span-2">
-                <p className="text-xs text-gray-400">생성 시간</p>
+                <p className="text-xs text-gray-400">Created</p>
                 <p className="text-sm text-gray-300">
                   {new Date(tournament.createdAt).toLocaleString('ko-KR')}
                 </p>
@@ -359,14 +359,14 @@ export function Tournament() {
           <BracketView bracketSize={tournament.bracketSize} rounds={bracketRounds} />
         ) : (
           <div className="py-12 text-center text-gray-400">
-            매치 데이터가 아직 생성되지 않았습니다.
+            No match data available yet.
           </div>
         )}
       </div>
 
-      {/* 자동 갱신 표시 */}
+      {/* Auto-refresh indicator */}
       <div className="text-center text-xs text-gray-500">
-        10초마다 자동 갱신됩니다
+        Auto-refreshes every 10 seconds
       </div>
     </div>
   );

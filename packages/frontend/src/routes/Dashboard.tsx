@@ -2,6 +2,7 @@
  * 대시보드 페이지 (랜딩)
  * Ghost Protocol Arena 메인 랜딩 페이지 — 히어로, 모드 카드, 라이브 피드
  */
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { useLobbySocket } from '@/hooks/useLobbySocket';
@@ -31,10 +32,76 @@ function getFeedIcon(type: string): string {
  * 히어로 섹션 + 모드 카드 + 라이브 피드로 구성
  */
 export function Dashboard(): React.JSX.Element {
-  const { matches, feedItems } = useDashboardStore();
+  const { matches, tournaments, feedItems, addFeedItem } = useDashboardStore();
 
   // 로비 WebSocket 연결
   useLobbySocket();
+
+  // 에이전트 이름 맵 (API에서 가져온 데이터 캐시)
+  const [agentNames, setAgentNames] = useState<Map<string, string>>(new Map());
+
+  // 시드 피드 생성 여부 추적 (중복 방지용)
+  const seedGenerated = useRef(false);
+
+  // 에이전트 이름 로드
+  useEffect(() => {
+    const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001/api/v1';
+
+    fetch(`${API_URL}/agents`)
+      .then(res => res.json())
+      .then((data: { agents: Array<{ address: string; name: string }> }) => {
+        const nameMap = new Map(data.agents.map(a => [a.address, a.name]));
+        setAgentNames(nameMap);
+      })
+      .catch(err => console.warn('에이전트 이름 로드 실패:', err));
+  }, []);
+
+  // 피드가 비어있고 매치/토너먼트 데이터가 있으면 시드 피드 생성
+  useEffect(() => {
+    // 시드가 이미 생성되었거나, 데이터가 없거나, 에이전트 이름이 로드되지 않았으면 스킵
+    if (seedGenerated.current || (matches.length === 0 && tournaments.length === 0) || agentNames.size === 0) return;
+
+    seedGenerated.current = true;
+
+    // 기존 매치에서 피드 생성 (최대 5개)
+    for (const match of matches.slice(0, 5)) {
+      const agentA = agentNames.get(match.agentA) ?? match.agentAName ?? match.agentA?.slice(-4) ?? '???';
+      const agentB = agentNames.get(match.agentB) ?? match.agentBName ?? match.agentB?.slice(-4) ?? '???';
+
+      if (match.status === 'completed' && match.winner) {
+        const winnerName = match.winner === match.agentA ? agentA : agentB;
+        // 동점일 경우 다른 메시지
+        const isTie = match.scoreA === match.scoreB;
+        const msg = isTie
+          ? `${winnerName} clutch win! (${agentA} vs ${agentB})`
+          : `${winnerName} wins! (${agentA} vs ${agentB})`;
+        addFeedItem({
+          id: `seed-${match.id}-done`,
+          type: 'match_completed',
+          message: msg,
+          timestamp: Date.now() - Math.random() * 3600000, // 랜덤 1시간 이내
+        });
+      } else if (match.status === 'active') {
+        addFeedItem({
+          id: `seed-${match.id}-live`,
+          type: 'match_started',
+          message: `Match in progress: ${agentA} vs ${agentB}`,
+          timestamp: Date.now() - Math.random() * 600000, // 랜덤 10분 이내
+        });
+      }
+    }
+
+    // 기존 토너먼트에서 피드 생성 (최대 3개)
+    for (const tournament of tournaments.slice(0, 3)) {
+      const statusText = tournament.status === 'active' ? 'In Progress' : 'Created';
+      addFeedItem({
+        id: `seed-${tournament.id}`,
+        type: 'tournament_created',
+        message: `Tournament ${statusText}: ${tournament.id.slice(0, 8)}...`,
+        timestamp: tournament.createdAt ?? Date.now(),
+      });
+    }
+  }, [matches, tournaments, agentNames, addFeedItem]);
 
   const liveMatches = matches.filter((m) => m.status === 'active' || m.status === 'betting');
   const firstActiveMatch = liveMatches[0];
@@ -159,46 +226,32 @@ export function Dashboard(): React.JSX.Element {
               LIVE FEED
             </span>
           </div>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            className="animate-bounce text-ghost-violet"
-          >
-            <path
-              d="M8 3v10M4 9l4 4 4-4"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
         </div>
         </div>
       </section>
 
-      {/* ===== 3. 라이브 피드 섹션 ===== */}
-      <section className="relative z-10 px-4 pb-16">
-        <div className="mx-auto max-w-3xl space-y-3">
-          {feedItems.length > 0 ? (
-            feedItems.slice(0, 10).map((item, idx) => (
-              <div
-                key={item.id ?? idx}
-                className="flex items-center gap-3 rounded-lg border border-ghost-violet/10 bg-arena-surface/40 px-4 py-3 backdrop-blur-sm transition-all hover:border-ghost-violet/30"
-              >
-                <span className="text-lg">
-                  {getFeedIcon(item.type)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-gray-200">{item.message ?? item.description}</p>
+      {/* ===== 3. 라이브 피드 섹션 (수평 스크롤 티커) ===== */}
+      <section className="relative z-10 pb-16">
+        {feedItems.length > 0 ? (
+          <div className="overflow-hidden border-y border-ghost-violet/10 bg-arena-surface/40 backdrop-blur-sm py-3">
+            <div className="animate-scroll-ticker flex w-max gap-6">
+              {/* 아이템을 2번 반복하여 무한 스크롤 효과 생성 */}
+              {[...feedItems.slice(0, 10), ...feedItems.slice(0, 10)].map((item, idx) => (
+                <div
+                  key={`${item.id ?? idx}-${idx}`}
+                  className="flex shrink-0 items-center gap-2 rounded-full border border-ghost-violet/20 bg-dark-surface/60 px-4 py-2"
+                >
+                  <span className="text-sm">{getFeedIcon(item.type)}</span>
+                  <p className="whitespace-nowrap text-sm text-gray-200">{item.message ?? item.description}</p>
+                  <span className="whitespace-nowrap text-[10px] text-gray-500">
+                    {formatTimeAgo(item.timestamp)}
+                  </span>
                 </div>
-                <span className="whitespace-nowrap text-[10px] text-gray-600">
-                  {formatTimeAgo(item.timestamp)}
-                </span>
-              </div>
-            ))
-          ) : (
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="mx-auto max-w-3xl px-4">
             <div className="rounded-xl border border-ghost-violet/10 bg-arena-surface/40 p-8 text-center backdrop-blur-sm">
               <div className="flex flex-col items-center gap-2">
                 <span className="text-2xl">{'\u{1F47B}'}</span>
@@ -206,8 +259,8 @@ export function Dashboard(): React.JSX.Element {
                 <p className="text-xs text-gray-600">Matches and tournaments will appear here</p>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </section>
     </div>
   );

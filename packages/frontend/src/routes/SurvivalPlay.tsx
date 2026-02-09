@@ -400,6 +400,26 @@ export function SurvivalPlay() {
               ))}
             </div>
 
+            {/* 고스트 AI 티어 설명 */}
+            <div className="mx-auto mt-6 max-w-md space-y-2 mb-8">
+              <h3 className="text-center text-xs font-bold uppercase tracking-wider text-gray-400" style={{ fontFamily: 'var(--font-display)' }}>Ghost AI Tiers</h3>
+              <div className="space-y-1.5">
+                {[
+                  { tier: 'T1', name: 'Random', desc: 'Random movement — Unpredictable', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
+                  { tier: 'T2', name: 'Chase', desc: 'Direct chase — Manhattan distance', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/20' },
+                  { tier: 'T3', name: 'Ambush', desc: 'Path prediction ambush — Targets 4 tiles ahead', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/20' },
+                  { tier: 'T4', name: 'Patrol', desc: 'A* pathfinding + Area patrol — Pellet cluster watch', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20' },
+                  { tier: 'T5', name: 'Adaptive', desc: 'Claude LLM strategy — Player pattern learning + Coordinated siege', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' },
+                ].map((t) => (
+                  <div key={t.tier} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${t.bg}`}>
+                    <span className={`font-display text-xs font-bold ${t.color}`}>{t.tier}</span>
+                    <span className={`text-xs font-semibold ${t.color}`}>{t.name}</span>
+                    <span className="text-xs text-gray-400">{t.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Start button — no server connection needed with local engine */}
             <button
               onClick={handleStartGame}

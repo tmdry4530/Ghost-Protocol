@@ -76,9 +76,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     })); },
 
   addFeedItem: (item) =>
-    { set((state) => ({
-      feedItems: [item, ...state.feedItems].slice(0, 50), // 최대 50개 유지
-    })); },
+    { set((state) => {
+      // 중복 방지 - 동일한 ID가 이미 있으면 추가하지 않음
+      if (state.feedItems.some((f) => f.id === item.id)) return state;
+      return {
+        feedItems: [item, ...state.feedItems].slice(0, 50), // 최대 50개 유지
+      };
+    }); },
 
   setTournamentFilter: (filter) => { set({ tournamentFilter: filter }); },
 

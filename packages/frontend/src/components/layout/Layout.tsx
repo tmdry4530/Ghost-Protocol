@@ -80,7 +80,7 @@ export function Layout() {
           <div className="hidden items-center gap-2 md:flex">
             <NetworkSwitcher />
             <AudioToggle />
-            <div className="animate-neon-pulse rounded-lg border border-ghost-violet/40 bg-ghost-violet/10 px-3 py-1.5 font-display text-xs font-semibold tracking-wide text-ghost-violet transition-all hover:bg-ghost-violet/20 hover:text-white lg:px-4 lg:py-2">
+            <div className="animate-neon-pulse rounded-md border border-ghost-violet/40 bg-ghost-violet/10 px-2 py-1 font-display text-[11px] font-semibold tracking-wide text-ghost-violet transition-all hover:bg-ghost-violet/20 hover:text-white">
               <WalletButton />
             </div>
           </div>

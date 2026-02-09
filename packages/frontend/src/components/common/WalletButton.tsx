@@ -40,7 +40,7 @@ export function WalletButton() {
           onClick={() => {
             setShowConfirm(!showConfirm);
           }}
-          className="flex items-center gap-2 rounded-lg bg-arena-card px-4 py-2 text-sm font-medium text-white transition-all hover:bg-arena-surface hover:neon-glow"
+          className="flex items-center gap-1.5 rounded-md bg-arena-card px-2.5 py-1 text-[11px] font-medium text-white transition-all hover:bg-arena-surface hover:neon-glow"
         >
           <span className="h-2 w-2 rounded-full bg-green-500"></span>
           <span>{`${address.slice(0, 6)}...${address.slice(-4)}`}</span>
@@ -73,7 +73,7 @@ export function WalletButton() {
   return (
     <button
       onClick={handleConnect}
-      className="rounded-lg bg-ghost-violet px-4 py-2 text-sm font-medium text-white transition-all hover:bg-ghost-violet-dark hover:neon-glow"
+      className="rounded-md bg-ghost-violet px-2.5 py-1 text-[11px] font-medium text-white transition-all hover:bg-ghost-violet-dark hover:neon-glow"
     >
       Connect Wallet
     </button>

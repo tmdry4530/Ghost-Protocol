@@ -7,6 +7,7 @@ import { LocalGameEngine } from '../game/engine/LocalGameEngine.js';
 import { MatchStatsOverlay } from '../components/game/MatchStatsOverlay.js';
 import { BettingPanel } from '../components/game/BettingPanel.js';
 import { useMatchSocket } from '../hooks/useMatchSocket.js';
+import { useBettingStore } from '../stores/bettingStore.js';
 
 /**
  * Game spectating page
@@ -17,7 +18,7 @@ export function GameViewer() {
   const matchId = id as MatchId;
 
   // 매치 데이터 (API에서 가져올 예정)
-  const [matchInfo] = useState<MatchInfo>({
+  const [matchInfo, setMatchInfo] = useState<MatchInfo>({
     id: matchId,
     tournamentId: '' as TournamentId,
     agentA: '' as AgentAddress,
@@ -42,8 +43,116 @@ export function GameViewer() {
     score: matchInfo.scoreB,
   });
 
+  // 배팅 스토어
+  const { setPool } = useBettingStore();
+
   // WebSocket connection and event listening
   useMatchSocket(matchId);
+
+  // API에서 매치 데이터 가져오기
+  useEffect(() => {
+    const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001/api/v1';
+    let mounted = true;
+
+    const fetchMatchData = async () => {
+      try {
+        // 매치 데이터 가져오기
+        const [matchRes, agentsRes] = await Promise.all([
+          fetch(`${API_URL}/matches/${matchId}`),
+          fetch(`${API_URL}/agents`),
+        ]);
+
+        if (!matchRes.ok || !agentsRes.ok || !mounted) return;
+
+        const matchData = await matchRes.json() as { match: { agentA: string; agentB: string; status: string; scoreA: number; scoreB: number; tournamentId: string } };
+        const agentsData = await agentsRes.json() as { agents: Array<{ address: string; name: string }> };
+
+        const agentsMap = new Map(agentsData.agents.map(a => [a.address, a]));
+        const match = matchData.match;
+
+        if (!mounted) return;
+
+        // 에이전트 이름 업데이트
+        const agentAData = agentsMap.get(match.agentA);
+        const agentBData = agentsMap.get(match.agentB);
+
+        setAgentAInfo({
+          address: match.agentA as AgentAddress,
+          name: agentAData?.name ?? `Agent ${match.agentA.slice(-4)}`,
+          score: match.scoreA,
+        });
+
+        setAgentBInfo({
+          address: match.agentB as AgentAddress,
+          name: agentBData?.name ?? `Agent ${match.agentB.slice(-4)}`,
+          score: match.scoreB,
+        });
+
+        // 매치 상태 업데이트
+        setMatchInfo(prev => ({
+          ...prev,
+          agentA: match.agentA as AgentAddress,
+          agentB: match.agentB as AgentAddress,
+          tournamentId: match.tournamentId as TournamentId,
+          status: match.status as MatchInfo['status'],
+        }));
+
+      } catch (err) {
+        console.warn('매치 데이터 로드 실패:', err);
+      }
+    };
+
+    void fetchMatchData();
+
+    return () => { mounted = false; };
+  }, [matchId]);
+
+  // 배팅 풀 초기화 (데모 데이터 - 매치별 고유 값 생성)
+  useEffect(() => {
+    // matchId 문자열에서 간단한 해시 생성 (char code 합산)
+    const hashMatchId = (id: string): number => {
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) {
+        hash = ((hash << 5) - hash) + id.charCodeAt(i);
+        hash = hash & hash; // 32비트 정수로 변환
+      }
+      return Math.abs(hash);
+    };
+
+    const hash = hashMatchId(matchId);
+    const seed = hash % 10000;
+
+    // 총 풀 크기 생성 (1.5 ~ 5.0 MON 범위)
+    const totalMon = 1.5 + (seed % 3500) / 1000; // 1.5~5.0
+    const totalPool = BigInt(Math.floor(totalMon * 1e18));
+
+    // A/B 배분 비율 생성 (40~60% 범위)
+    const sideARatio = 0.4 + (seed % 2000) / 10000; // 0.4~0.6
+    const sideA = BigInt(Math.floor(Number(totalPool) * sideARatio));
+    const sideB = totalPool - sideA;
+
+    // 배율 계산 (sideA/sideB 비율 기반)
+    const oddsA = Number(totalPool) / Number(sideA);
+    const oddsB = Number(totalPool) / Number(sideB);
+
+    // 배팅 개수 생성 (3~15 범위)
+    const betCount = 3 + (seed % 13);
+
+    // 매치 완료 시 락 상태
+    const locked = matchInfo.status === 'completed';
+
+    const demoPool = {
+      matchId,
+      totalPool,
+      sideA,
+      sideB,
+      oddsA,
+      oddsB,
+      betCount,
+      locked,
+    };
+    setPool(demoPool);
+  }, [matchId, matchInfo.status, setPool]);
 
   // Demo game loop setup (using LocalGameEngine)
   useEffect(() => {
@@ -94,6 +203,21 @@ export function GameViewer() {
       engine = null;
     };
   }, []);
+
+  // 에이전트별 전략 레이블 매핑
+  const getAgentStrategy = (name: string): string => {
+    const strategyMap: Record<string, string> = {
+      'AlphaGhost': 'Aggressive Ghost Hunting',
+      'BetaHunter': 'Greedy Pellet Chasing',
+      'GammaTracker': 'A* Path Optimization',
+      'DeltaStalker': 'Defensive Pathfinding',
+      'EpsilonWraith': 'Power Pellet Priority',
+      'ZetaPhantom': 'Adaptive Pattern Analysis',
+      'EtaSpectre': 'Map Zone Control',
+      'ThetaShadow': 'Claude LLM Strategy',
+    };
+    return strategyMap[name] ?? 'AI Strategy Active';
+  };
 
   // Status badge by match state
   const getStatusBadge = () => {
@@ -183,6 +307,26 @@ export function GameViewer() {
                 <span>Latency: ~50ms</span>
               </div>
             </div>
+
+            {/* AI 전략 표시 */}
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-ghost-blue/20 bg-ghost-blue/5 px-3 py-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-ghost-blue" />
+                  <span className="font-display text-[10px] tracking-wider text-ghost-blue">{agentAInfo.name}</span>
+                  <span className="ml-auto font-display text-xs font-bold text-white">{agentAInfo.score}</span>
+                </div>
+                <div className="text-[9px] text-gray-500">Strategy: {getAgentStrategy(agentAInfo.name)}</div>
+              </div>
+              <div className="rounded-lg border border-ghost-pink/20 bg-ghost-pink/5 px-3 py-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-ghost-pink" />
+                  <span className="font-display text-[10px] tracking-wider text-ghost-pink">{agentBInfo.name}</span>
+                  <span className="ml-auto font-display text-xs font-bold text-white">{agentBInfo.score}</span>
+                </div>
+                <div className="text-[9px] text-gray-500">Strategy: {getAgentStrategy(agentBInfo.name)}</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -192,6 +336,7 @@ export function GameViewer() {
             matchId={matchId}
             agentAName={agentAInfo.name}
             agentBName={agentBInfo.name}
+            matchStatus={matchInfo.status}
           />
         </div>
       </div>

@@ -69,6 +69,10 @@ export function PhaserGame() {
         antialias: false,
         pixelArt: true,
       },
+      // Phaser 오디오 관리 비활성화 (커스텀 AudioEngine 사용)
+      audio: {
+        disableWebAudio: true,
+      },
     };
 
     gameRef.current = new Phaser.Game(config);

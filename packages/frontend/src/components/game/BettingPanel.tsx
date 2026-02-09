@@ -16,6 +16,8 @@ interface BettingPanelProps {
   agentBName: string;
   /** Betting deadline (Unix timestamp ms, optional) */
   bettingDeadline?: number;
+  /** Match status (optional) */
+  matchStatus?: string;
 }
 
 /**
@@ -27,6 +29,7 @@ export function BettingPanel({
   agentAName,
   agentBName,
   bettingDeadline,
+  matchStatus,
 }: BettingPanelProps) {
   const { isConnected } = useAccount();
   const {
@@ -116,6 +119,7 @@ export function BettingPanel({
 
   // Betting status text
   const getStatusText = (): string => {
+    if (matchStatus === 'completed') return 'Match Ended';
     if (timeRemaining !== null && timeRemaining === 0) return 'Betting Closed';
     if (isLocked) return 'Betting Locked';
     if (pool === null) return 'Loading...';
@@ -124,6 +128,7 @@ export function BettingPanel({
 
   // Betting status color
   const getStatusColor = (): string => {
+    if (matchStatus === 'completed') return '#6b7280';
     if (timeRemaining !== null && timeRemaining === 0) return '#ef4444';
     if (isLocked) return '#ef4444';
     if (pool === null) return '#6b7280';
@@ -167,7 +172,7 @@ export function BettingPanel({
   };
 
   // Whether betting is disabled
-  const isBettingDisabled = isLocked || (timeRemaining !== null && timeRemaining === 0);
+  const isBettingDisabled = matchStatus === 'completed' || isLocked || (timeRemaining !== null && timeRemaining === 0);
 
   return (
     <div

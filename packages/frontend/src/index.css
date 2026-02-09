@@ -15,6 +15,10 @@
   --color-arena-wall: #4338ca;
   --color-arena-pellet: #fbbf24;
 
+  /* Agent colors (전략 표시용) */
+  --color-ghost-blue-rgb: 59, 130, 246;
+  --color-ghost-pink-rgb: 236, 72, 153;
+
   /* Surface colors */
   --color-arena-surface: #111128;
   --color-arena-card: #1a1a3e;

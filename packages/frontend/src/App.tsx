@@ -17,13 +17,13 @@ export function App() {
         <Route index element={<Dashboard />} />
         <Route path="/tournament" element={<Tournament />} />
         <Route path="/tournament/:id" element={<Tournament />} />
+        <Route path="/match/:id" element={<GameViewer />} />
+        <Route path="/survival" element={<SurvivalPlay />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/my-bets" element={<MyBets />} />
         <Route path="*" element={<NotFound />} />
       </Route>
       <Route path="/game" element={<GameContainer />} />
-      <Route path="/match/:id" element={<GameViewer />} />
-      <Route path="/survival" element={<SurvivalPlay />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
