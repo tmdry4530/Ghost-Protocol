@@ -3,7 +3,15 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "env": [
+        "VITE_API_URL",
+        "VITE_WS_URL",
+        "VITE_MONAD_RPC_URL",
+        "VITE_GHOST_ARENA_ADDRESS",
+        "VITE_WAGER_POOL_ADDRESS",
+        "VITE_SURVIVAL_BET_ADDRESS"
+      ]
     },
     "dev": {
       "cache": false,

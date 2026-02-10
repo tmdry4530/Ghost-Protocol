@@ -3,7 +3,6 @@
   "buildCommand": "pnpm turbo run build --filter=@ghost-protocol/frontend",
   "outputDirectory": "packages/frontend/dist",
   "installCommand": "pnpm install",
-  "framework": "vite",
   "rewrites": [
     {
       "source": "/(.*)",
