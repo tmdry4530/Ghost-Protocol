@@ -39,7 +39,6 @@ export function Layout() {
   const navLinks = [
     { to: '/', label: 'Dashboard' },
     { to: '/tournament/current', label: 'Tournament' },
-    { to: '/challenge', label: 'Challenge' },
     { to: '/leaderboard', label: 'Leaderboard' },
     { to: '/my-bets', label: 'My Bets' },
   ];

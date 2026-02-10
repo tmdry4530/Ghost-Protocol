@@ -143,28 +143,36 @@ export function Dashboard(): React.JSX.Element {
         </div>
 
         {/* ===== 2. 모드 카드 (히어로 내부) ===== */}
-        <div className="mt-12 grid w-full max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
-          {/* 아레나 모드 카드 */}
-          <div className="group relative overflow-hidden rounded-xl border border-ghost-violet/30 bg-arena-surface/80 p-6 backdrop-blur-sm transition-all duration-300 hover:border-ghost-violet/60 hover:bg-dark-surface-2/80 lg:p-8">
+        <div className="mt-12 grid w-full max-w-6xl grid-cols-1 gap-6 md:grid-cols-3">
+          {/* Tournament 모드 카드 */}
+          <div className="group relative overflow-hidden rounded-xl border border-ghost-violet/30 bg-arena-surface/80 p-6 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:border-ghost-violet/60 hover:bg-dark-surface-2/80 hover:shadow-[0_0_30px_rgba(124,58,237,0.4)]">
             {/* Gradient border overlay */}
             <div
               className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
               aria-hidden="true"
-              style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.1), transparent 60%)' }}
+              style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.15), transparent 60%)' }}
             />
             <div className="relative z-10 flex h-full flex-col">
               <div className="mb-4 flex items-center gap-3">
-                <span className="text-3xl">{'\u2694\uFE0F'}</span>
+                {/* Trophy/Crown SVG Icon */}
+                <svg className="h-8 w-8 text-ghost-violet" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L15 9H22L17 14L19 21L12 17L5 21L7 14L2 9H9L12 2Z" />
+                </svg>
                 <h2
                   className="text-sm font-bold tracking-wider"
                   style={{ fontFamily: 'var(--font-display)', color: '#7c3aed' }}
                 >
-                  ARENA MODE
+                  TOURNAMENT
                 </h2>
               </div>
-              <p className="mb-5 flex-1 text-sm leading-relaxed text-gray-300">
-                Watch AI agents battle in Pac-Man tournaments. Bet on the winner.
+              <p className="mb-4 flex-1 text-sm leading-relaxed text-gray-300">
+                Watch AI agents battle in bracket tournaments. Place bets on your favorite.
               </p>
+              <div className="mb-5 rounded-full border border-ghost-violet/30 bg-ghost-violet/5 px-3 py-1 text-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-ghost-violet">
+                  AI vs AI &bull; Wagering
+                </span>
+              </div>
               <Link
                 to={firstActiveMatch ? `/match/${firstActiveMatch.id}` : '/tournament/current'}
                 className="animate-neon-pulse block w-full rounded-lg border-2 border-ghost-violet/70 bg-ghost-violet/10 py-3.5 text-center text-sm font-bold tracking-wider text-ghost-violet transition-all hover:bg-ghost-violet/30 hover:text-white hover:border-ghost-violet"
@@ -175,33 +183,80 @@ export function Dashboard(): React.JSX.Element {
             </div>
           </div>
 
-          {/* 서바이벌 모드 카드 */}
-          <div className="group relative overflow-hidden rounded-xl border border-amber-400/30 bg-arena-surface/80 p-6 backdrop-blur-sm transition-all duration-300 hover:border-amber-400/60 hover:bg-dark-surface-2/80 lg:p-8">
+          {/* Survival 모드 카드 */}
+          <div className="group relative overflow-hidden rounded-xl border border-emerald-400/30 bg-arena-surface/80 p-6 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:border-emerald-400/60 hover:bg-dark-surface-2/80 hover:shadow-[0_0_30px_rgba(52,211,153,0.4)]">
             {/* Gradient border overlay */}
             <div
               className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
               aria-hidden="true"
-              style={{ background: 'linear-gradient(135deg, rgba(251,191,36,0.1), transparent 60%)' }}
+              style={{ background: 'linear-gradient(135deg, rgba(52,211,153,0.15), transparent 60%)' }}
             />
             <div className="relative z-10 flex h-full flex-col">
               <div className="mb-4 flex items-center gap-3">
-                <span className="text-3xl">{'\u{1F47E}'}</span>
+                {/* Heart/Shield SVG Icon */}
+                <svg className="h-8 w-8 text-emerald-400" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2C9.24 2 7 4.24 7 7V11L5 13V21H19V13L17 11V7C17 4.24 14.76 2 12 2ZM12 4C13.66 4 15 5.34 15 7V11.79L16 12.79V19H8V12.79L9 11.79V7C9 5.34 10.34 4 12 4Z" />
+                </svg>
+                <h2
+                  className="text-sm font-bold tracking-wider"
+                  style={{ fontFamily: 'var(--font-display)', color: '#34d399' }}
+                >
+                  SURVIVAL
+                </h2>
+              </div>
+              <p className="mb-4 flex-1 text-sm leading-relaxed text-gray-300">
+                Play as Pac-Man against increasingly smart AI ghosts. How far can you go?
+              </p>
+              <div className="mb-5 rounded-full border border-emerald-400/30 bg-emerald-400/5 px-3 py-1 text-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                  Human vs AI &bull; Entry Fee
+                </span>
+              </div>
+              <Link
+                to="/survival"
+                className="animate-neon-pulse-green block w-full rounded-lg border-2 border-emerald-400/70 bg-emerald-400/10 py-3.5 text-center text-sm font-bold tracking-wider text-emerald-400 transition-all hover:bg-emerald-400/30 hover:text-white hover:border-emerald-400"
+                style={{ fontFamily: 'var(--font-display)' }}
+              >
+                Play Now
+              </Link>
+            </div>
+          </div>
+
+          {/* Challenge 모드 카드 */}
+          <div className="group relative overflow-hidden rounded-xl border border-amber-400/30 bg-arena-surface/80 p-6 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:border-amber-400/60 hover:bg-dark-surface-2/80 hover:shadow-[0_0_30px_rgba(251,191,36,0.4)]">
+            {/* Gradient border overlay */}
+            <div
+              className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+              aria-hidden="true"
+              style={{ background: 'linear-gradient(135deg, rgba(251,191,36,0.15), transparent 60%)' }}
+            />
+            <div className="relative z-10 flex h-full flex-col">
+              <div className="mb-4 flex items-center gap-3">
+                {/* Swords/Lightning SVG Icon */}
+                <svg className="h-8 w-8 text-amber-400" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" />
+                </svg>
                 <h2
                   className="text-sm font-bold tracking-wider"
                   style={{ fontFamily: 'var(--font-display)', color: '#fbbf24' }}
                 >
-                  SURVIVAL MODE
+                  CHALLENGE
                 </h2>
               </div>
-              <p className="mb-5 flex-1 text-sm leading-relaxed text-gray-300">
-                You vs AI Ghosts. How long can you survive?
+              <p className="mb-4 flex-1 text-sm leading-relaxed text-gray-300">
+                Bring your own AI agent to battle server ghosts in real-time.
               </p>
+              <div className="mb-5 rounded-full border border-amber-400/30 bg-amber-400/5 px-3 py-1 text-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                  Agent vs AI &bull; Wagering
+                </span>
+              </div>
               <Link
-                to="/survival"
+                to="/challenge"
                 className="animate-neon-pulse-yellow block w-full rounded-lg border-2 border-amber-400/70 bg-amber-400/10 py-3.5 text-center text-sm font-bold tracking-wider text-amber-400 transition-all hover:bg-amber-400/30 hover:text-white hover:border-amber-400"
                 style={{ fontFamily: 'var(--font-display)' }}
               >
-                Play Now
+                Challenge Now
               </Link>
             </div>
           </div>
