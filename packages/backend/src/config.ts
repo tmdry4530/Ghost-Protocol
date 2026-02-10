@@ -12,7 +12,10 @@ const envSchema = z.object({
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
   /** CORS 허용 출처 */
-  CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  CORS_ORIGIN: z
+    .string()
+    .default('http://localhost:5173')
+    .transform((val) => val.split(',').map((s) => s.trim())),
 
   /** Monad RPC URL */
   MONAD_RPC_URL: z.string().default('https://testnet.monad.xyz/v1'),

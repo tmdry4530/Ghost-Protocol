@@ -14,7 +14,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ChallengeMatchOrchestrator } from '../ChallengeMatchOrchestrator.js';
-import type { GameState, GameStateFrame } from '@ghost-protocol/shared';
+import type { GameState } from '@ghost-protocol/shared';
 
 /** Mock GameLoopManager */
 class MockGameLoopManager {
@@ -37,20 +37,19 @@ class MockGameLoopManager {
         tick: 0,
         score: 0,
         lives: 3,
-        level: 1,
+        round: 1,
         pacman: {
-          position: { x: 13.5, y: 23 },
+          x: 13.5,
+          y: 23,
           direction: 'left',
-          nextDirection: 'left',
-          speed: 0.4,
-          powerUpActive: false,
-          powerUpTimer: 0,
+          score: 0,
+          lives: 3,
         },
         ghosts: [],
-        pellets: [],
-        powerPellets: [],
-        fruit: null,
-        gameOver: false,
+        maze: { width: 28, height: 31, walls: [], pellets: [], powerPellets: [] },
+        powerActive: false,
+        powerTimeRemaining: 0,
+        fruitAvailable: null,
       },
     });
   }
@@ -73,7 +72,7 @@ class MockGameLoopManager {
     this.sessions.delete(sessionId);
   }
 
-  handleInput(sessionId: string, agentId: string, direction: string): void {
+  handleInput(_sessionId: string, _agentId: string, _direction: string): void {
     // no-op — 입력 처리 시뮬레이션
   }
 
@@ -103,7 +102,7 @@ class MockGameLoopManager {
   triggerGameOver(sessionId: string, state: Partial<GameState>): void {
     const session = this.sessions.get(sessionId);
     if (session && this.gameOverCallback) {
-      const fullState: GameState = { ...session.state, ...state, gameOver: true };
+      const fullState: GameState = { ...session.state, ...state };
       session.state = fullState; // 상태 업데이트
       this.gameOverCallback(sessionId, fullState);
     }
@@ -112,11 +111,11 @@ class MockGameLoopManager {
 
 /** Mock SocketManager */
 class MockSocketManager {
-  broadcastToLobby(event: string, data: Record<string, unknown>): void {
+  broadcastToLobby(_event: string, _data: Record<string, unknown>): void {
     // no-op
   }
 
-  broadcastFeedItem(item: {
+  broadcastFeedItem(_item: {
     id: string;
     type: string;
     message: string;
@@ -130,19 +129,19 @@ class MockSocketManager {
 /** Mock BettingOrchestrator */
 class MockBettingOrchestrator {
   openBettingWindow(
-    matchId: string,
-    agentA: string,
-    agentB: string,
-    windowSeconds: number,
+    _matchId: string,
+    _agentA: string,
+    _agentB: string,
+    _windowSeconds: number,
   ): void {
     // no-op
   }
 
-  lockBets(matchId: string): Promise<void> {
+  lockBets(_matchId: string): Promise<void> {
     return Promise.resolve();
   }
 
-  settleBets(matchId: string, winner: 'agentA' | 'agentB'): Promise<void> {
+  settleBets(_matchId: string, _winner: 'agentA' | 'agentB'): Promise<void> {
     return Promise.resolve();
   }
 
@@ -489,7 +488,6 @@ describe('ChallengeMatchOrchestrator', () => {
       mockGameLoop.triggerGameOver(`match:${challenge.id}`, {
         lives: 0,
         score: 500,
-        gameOver: true,
       });
 
       const completed = orchestrator.getMatch(challenge.id);
@@ -514,7 +512,6 @@ describe('ChallengeMatchOrchestrator', () => {
       mockGameLoop.triggerGameOver(`match:${challenge.id}`, {
         lives: 2,
         score: 1200,
-        gameOver: true,
       });
 
       const completed = orchestrator.getMatch(challenge.id);
@@ -547,7 +544,6 @@ describe('ChallengeMatchOrchestrator', () => {
       mockGameLoop.triggerGameOver(`match:${challenge.id}`, {
         lives: 3,
         score: 2000,
-        gameOver: true,
       });
 
       // settleMatchBets async 플러시
@@ -581,7 +577,6 @@ describe('ChallengeMatchOrchestrator', () => {
       mockGameLoop.triggerGameOver(`match:${challenge.id}`, {
         lives: 0,
         score: 800,
-        gameOver: true,
       });
 
       // settleMatchBets async 플러시
