@@ -31,9 +31,9 @@ async function _postTournamentExample(): Promise<void> {
 
   try {
     await socialService.postTournamentResult(result);
-    console.log('✅ 토너먼트 결과 포스팅 완료');
+    console.log('✅ Tournament result posting completed');
   } catch (error) {
-    console.error('❌ 포스팅 실패:', error);
+    console.error('❌ Posting failed:', error);
   }
 }
 
@@ -41,27 +41,27 @@ async function _postTournamentExample(): Promise<void> {
 async function _searchAgentPostsExample(): Promise<void> {
   try {
     const posts = await socialService.getAgentPosts('AgentAlpha');
-    console.log(`✅ 검색된 포스트 수: ${posts.length}`);
+    console.log(`✅ Posts found: ${posts.length}`);
   } catch (error) {
-    console.error('❌ 검색 실패:', error);
+    console.error('❌ Search failed:', error);
   }
 }
 
-// submolt 생성 예시 (최초 1회만 실행)
+// submolt creation example (run once only)
 async function _setupSubmoltExample(): Promise<void> {
   try {
     await socialService.createSubmolt();
-    console.log('✅ m/ghost-protocol submolt 생성 완료');
+    console.log('✅ m/ghost-protocol submolt creation completed');
   } catch (error) {
-    console.error('❌ submolt 생성 실패:', error);
+    console.error('❌ submolt creation failed:', error);
   }
 }
 
-// 대기 중인 포스트 확인
+// Check pending posts
 async function _checkPendingPostsExample(): Promise<void> {
   const pending = socialService.getPendingPosts();
-  console.log(`📋 대기 중인 포스트: ${pending.length}개`);
+  console.log(`📋 Pending posts: ${pending.length}`);
 
-  // 큐 비우기 (필요 시)
+  // Clear queue (if needed)
   socialService.clearPendingPosts();
 }

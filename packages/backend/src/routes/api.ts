@@ -120,7 +120,7 @@ export class ApiStateStore {
     }
 
     this.refreshLeaderboard();
-    logger.info({ count: this.agents.size }, '데모 에이전트 등록 완료');
+    logger.info({ count: this.agents.size }, 'Demo agents registered');
   }
 }
 
@@ -160,7 +160,7 @@ export function createApiRouter(
     const id = String(req.params['id'] ?? '');
     const tournament = stateStore.tournaments.get(id);
     if (!tournament) {
-      res.status(404).json({ error: '토너먼트를 찾을 수 없습니다' });
+      res.status(404).json({ error: 'Tournament not found' });
       return;
     }
     res.json({ tournament });
@@ -179,7 +179,7 @@ export function createApiRouter(
     const id = String(req.params['id'] ?? '');
     const match = stateStore.matches.get(id);
     if (!match) {
-      res.status(404).json({ error: '매치를 찾을 수 없습니다' });
+      res.status(404).json({ error: 'Match not found' });
       return;
     }
     res.json({ match });
@@ -198,7 +198,7 @@ export function createApiRouter(
     const address = String(req.params['address'] ?? '');
     const agent = stateStore.agents.get(address);
     if (!agent) {
-      res.status(404).json({ error: '에이전트를 찾을 수 없습니다' });
+      res.status(404).json({ error: 'Agent not found' });
       return;
     }
     res.json({ agent });
@@ -279,7 +279,7 @@ export function createApiRouter(
   /** 챌린지 생성 */
   router.post('/challenge', (req: Request, res: Response) => {
     if (!challengeOrchestrator) {
-      res.status(503).json({ error: '챌린지 시스템이 초기화되지 않았습니다' });
+      res.status(503).json({ error: 'Challenge system not initialized' });
       return;
     }
 
@@ -289,14 +289,14 @@ export function createApiRouter(
     const agentId = body['agentId'];
 
     if (typeof sessionToken !== 'string' || sessionToken.length === 0) {
-      res.status(400).json({ error: 'sessionToken이 필요합니다' });
+      res.status(400).json({ error: 'sessionToken is required' });
       return;
     }
 
-    // difficulty 검증 (1~5)
+    // Validate difficulty (1~5)
     const difficulty = typeof difficultyRaw === 'number' ? difficultyRaw : 3;
     if (difficulty < 1 || difficulty > 5 || !Number.isInteger(difficulty)) {
-      res.status(400).json({ error: 'difficulty는 1~5 사이의 정수여야 합니다' });
+      res.status(400).json({ error: 'difficulty must be an integer between 1 and 5' });
       return;
     }
 
@@ -312,8 +312,8 @@ export function createApiRouter(
       );
       res.status(201).json({ challenge });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '챌린지 생성 실패';
-      logger.error({ error: message }, '챌린지 생성 오류');
+      const message = error instanceof Error ? error.message : 'Challenge creation failed';
+      logger.error({ error: message }, 'Challenge creation error');
       res.status(400).json({ error: message });
     }
   });
@@ -328,17 +328,17 @@ export function createApiRouter(
     res.json({ challenges });
   });
 
-  /** 챌린지 상세 조회 */
+  /** Challenge detail query */
   router.get('/challenge/:matchId', (req: Request, res: Response) => {
     if (!challengeOrchestrator) {
-      res.status(503).json({ error: '챌린지 시스템이 초기화되지 않았습니다' });
+      res.status(503).json({ error: 'Challenge system not initialized' });
       return;
     }
 
     const matchId = String(req.params['matchId'] ?? '');
     const challenge = challengeOrchestrator.getMatch(matchId);
     if (!challenge) {
-      res.status(404).json({ error: '챌린지를 찾을 수 없습니다' });
+      res.status(404).json({ error: 'Challenge not found' });
       return;
     }
     res.json({ challenge });

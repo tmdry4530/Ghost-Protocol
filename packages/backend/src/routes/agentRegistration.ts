@@ -47,7 +47,7 @@ type AgentRole = 'pacman' | 'ghost';
  */
 const registerRequestSchema = z.object({
   role: z.enum(['pacman', 'ghost'], {
-    errorMap: () => ({ message: "role은 'pacman' 또는 'ghost'여야 합니다" }),
+    errorMap: () => ({ message: "role must be 'pacman' or 'ghost'" }),
   }),
   agentCode: z.string().optional(),
   builtInAgent: z.string().optional(),
@@ -95,7 +95,7 @@ async function callRegisterOnChain(
   const env = loadEnv();
 
   if (!env.GHOST_ARENA_ADDRESS || !env.ARENA_MANAGER_PRIVATE_KEY) {
-    logger.warn('온체인 등록 건너뜀: GHOST_ARENA_ADDRESS 또는 ARENA_MANAGER_PRIVATE_KEY 미설정');
+    logger.warn('Onchain registration skipped: GHOST_ARENA_ADDRESS or ARENA_MANAGER_PRIVATE_KEY not set');
     return null;
   }
 
@@ -131,15 +131,15 @@ async function callRegisterOnChain(
     const txHash = receipt?.hash ?? null;
     logger.info(
       { txHash, agentAddress, moltbookId },
-      '온체인 에이전트 등록 완료',
+      'Onchain agent registration completed',
     );
 
     return txHash;
   } catch (error) {
-    // 온체인 등록 실패해도 오프체인 등록은 유지
+    // Keep offchain registration even if onchain registration fails
     logger.error(
       { error: error instanceof Error ? error.message : String(error), agentAddress, moltbookId },
-      '온체인 에이전트 등록 실패 (오프체인 등록은 유지)',
+      'Onchain agent registration failed (offchain registration maintained)',
     );
     return null;
   }
@@ -179,14 +179,14 @@ router.post(
   async (req, res): Promise<void> => {
     const agent = req.moltbookAgent as MoltbookVerifiedProfile;
 
-    // 1. 요청 바디 검증
+    // 1. Validate request body
     const parseResult = registerRequestSchema.safeParse(req.body);
     if (!parseResult.success) {
       const errors = parseResult.error.flatten().fieldErrors;
-      logger.warn({ errors, moltbookId: agent.id }, '등록 요청 바디 검증 실패');
+      logger.warn({ errors, moltbookId: agent.id }, 'Registration request body validation failed');
       res.status(400).json({
         success: false,
-        error: '유효하지 않은 요청 데이터',
+        error: 'Invalid request data',
         details: errors,
       });
       return;
@@ -205,10 +205,10 @@ router.post(
         hasBuiltIn: Boolean(builtInAgent),
         hasWallet: Boolean(walletAddress),
       },
-      '에이전트 등록 시작',
+      'Agent registration started',
     );
 
-    // 2. 중복 등록 체크
+    // 2. Check duplicate registration
     const existingAgent = agentRegistry.get(agent.id);
     if (existingAgent?.active) {
       logger.warn(
@@ -217,11 +217,11 @@ router.post(
           existingAgentId: existingAgent.agentId,
           existingRole: existingAgent.role,
         },
-        '이미 등록된 에이전트의 중복 등록 시도',
+        'Duplicate registration attempt for already registered agent',
       );
       res.status(409).json({
         success: false,
-        error: '이미 등록된 에이전트입니다',
+        error: 'Agent already registered',
         existingRegistration: {
           agentId: existingAgent.agentId,
           role: existingAgent.role,
@@ -231,60 +231,60 @@ router.post(
       return;
     }
 
-    // 3. 에이전트 코드 검증 (향후 구현)
-    // TODO: isolated-vm 샌드박스로 agentCode 안전성 검사
+    // 3. Validate agent code (future implementation)
+    // TODO: Safety check agentCode with isolated-vm sandbox
     // - memoryLimit: 128MB
     // - timeout: 100ms
-    // - 파일시스템/네트워크 접근 차단
+    // - Block filesystem/network access
     if (agentCode) {
-      logger.debug({ moltbookId: agent.id }, '커스텀 에이전트 코드 제출됨 (검증 스킵)');
+      logger.debug({ moltbookId: agent.id }, 'Custom agent code submitted (validation skipped)');
     }
     if (builtInAgent) {
       logger.debug(
         { moltbookId: agent.id, builtInAgent },
-        '내장 에이전트 선택됨',
+        'Built-in agent selected',
       );
     }
 
-    // 4. 지갑 주소 할당 및 펀딩
+    // 4. Wallet address allocation and funding
     let finalWalletAddress: string;
 
     if (walletAddress) {
-      // 자체 지갑 제공
+      // Own wallet provided
       finalWalletAddress = walletAddress;
       logger.info(
         { moltbookId: agent.id, walletAddress },
-        '자체 지갑 주소 제공됨',
+        'Own wallet address provided',
       );
     } else {
-      // 서버 생성 지갑 (향후 Circle Dev-Controlled Wallet 통합)
-      // 현재는 임시로 랜덤 주소 생성 (테스트 전용)
+      // Server-generated wallet (future Circle Dev-Controlled Wallet integration)
+      // Currently generates random address temporarily (test only)
       const randomWallet = crypto.randomBytes(20).toString('hex');
       finalWalletAddress = `0x${randomWallet}`;
       logger.warn(
         { moltbookId: agent.id, generatedWallet: finalWalletAddress },
-        '임시 지갑 주소 생성 (Circle 통합 필요)',
+        'Temporary wallet address generated (Circle integration needed)',
       );
     }
 
-    // Agent Faucet으로 펀딩 (테스트넷만, 실제 지갑이 아닌 경우 스킵)
+    // Fund with Agent Faucet (testnet only, skip if not actual wallet)
     if (walletAddress) {
       try {
         const provider = createMonadProvider();
         await ensureAgentFunded(finalWalletAddress, provider, 0.1);
         logger.info(
           { moltbookId: agent.id, walletAddress: finalWalletAddress },
-          'Agent Faucet 펀딩 완료',
+          'Agent Faucet funding completed',
         );
       } catch (error) {
         if (error instanceof AgentFaucetError) {
           logger.error(
             { moltbookId: agent.id, walletAddress: finalWalletAddress, error: error.message },
-            'Agent Faucet 펀딩 실패',
+            'Agent Faucet funding failed',
           );
           res.status(503).json({
             success: false,
-            error: 'Agent Faucet 펀딩 실패',
+            error: 'Agent Faucet funding failed',
             details: error.message,
             fallback: 'https://faucet.monad.xyz',
           });
@@ -294,11 +294,11 @@ router.post(
       }
     }
 
-    // 5. WebSocket 세션 토큰 발급
+    // 5. Issue WebSocket session token
     const sessionToken = crypto.randomUUID();
     const agentId = `agent-${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`;
 
-    // 6. 레지스트리에 등록
+    // 6. Register to registry
     const registration: RegisteredAgent = {
       agentId,
       moltbookId: agent.id,
@@ -325,10 +325,10 @@ router.post(
         walletAddress: finalWalletAddress,
         totalRegistered: agentRegistry.size,
       },
-      '에이전트 등록 완료',
+      'Agent registration completed',
     );
 
-    // 6.5. 온체인 등록 (GhostArena.registerExternalAgent)
+    // 6.5. Onchain registration (GhostArena.registerExternalAgent)
     const txHash = await callRegisterOnChain(
       finalWalletAddress,
       agent.name,
@@ -337,7 +337,7 @@ router.post(
       role,
     );
 
-    // 7. 응답
+    // 7. Response
     res.status(201).json({
       success: true,
       data: {
@@ -389,7 +389,7 @@ router.get('/arena/agents', (req, res): void => {
     agents = agents.filter((a) => a.active);
   }
 
-  // 민감 정보 제거 (sessionToken 제외)
+  // Remove sensitive info (exclude sessionToken)
   const publicAgents = agents.map((a) => ({
     agentId: a.agentId,
     moltbookId: a.moltbookId,
@@ -400,7 +400,7 @@ router.get('/arena/agents', (req, res): void => {
     active: a.active,
   }));
 
-  logger.debug({ count: publicAgents.length, roleFilter, activeFilter }, '에이전트 목록 조회');
+  logger.debug({ count: publicAgents.length, roleFilter, activeFilter }, 'Agent list query');
 
   res.json({
     success: true,
@@ -420,17 +420,17 @@ router.get('/arena/agents/:moltbookId', (req, res): void => {
   const agent = agentRegistry.get(moltbookId);
 
   if (!agent) {
-    logger.warn({ moltbookId }, '존재하지 않는 에이전트 조회 시도');
+    logger.warn({ moltbookId }, 'Non-existent agent query attempt');
     res.status(404).json({
       success: false,
-      error: '에이전트를 찾을 수 없습니다',
+      error: 'Agent not found',
     });
     return;
   }
 
-  logger.debug({ moltbookId, agentId: agent.agentId }, '에이전트 프로필 조회');
+  logger.debug({ moltbookId, agentId: agent.agentId }, 'Agent profile query');
 
-  // sessionToken 제외한 공개 정보
+  // Public info excluding sessionToken
   res.json({
     success: true,
     agent: {

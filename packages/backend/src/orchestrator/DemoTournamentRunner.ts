@@ -41,7 +41,7 @@ export class DemoTournamentRunner {
     if (this.running) return;
     this.running = true;
 
-    logger.info('데모 토너먼트 러너 시작');
+    logger.info('Demo tournament runner started');
 
     // 즉시 첫 토너먼트 생성
     void this.createAndRunTournament();
@@ -61,14 +61,14 @@ export class DemoTournamentRunner {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
-    logger.info('데모 토너먼트 러너 정지');
+    logger.info('Demo tournament runner stopped');
   }
 
   /** 토너먼트 생성 및 실행 */
   private async createAndRunTournament(): Promise<void> {
     const agents = [...this.stateStore.agents.values()].filter((a) => a.active);
     if (agents.length < 8) {
-      logger.warn('활성 에이전트 부족 (최소 8명 필요)');
+      logger.warn('Insufficient active agents (minimum 8 required)');
       return;
     }
 
@@ -106,12 +106,12 @@ export class DemoTournamentRunner {
     this.socketManager.broadcastFeedItem({
       id: `feed-${Date.now().toString(36)}`,
       type: 'tournament_created',
-      message: `새 토너먼트 #${String(this.tournamentCounter)} 시작! 8명의 AI 에이전트가 참가합니다.`,
+      message: `New tournament #${String(this.tournamentCounter)} started! 8 AI agents participating.`,
       timestamp: Date.now(),
       data: { tournamentId },
     });
 
-    logger.info({ tournamentId, participants: participants.length }, '데모 토너먼트 생성');
+    logger.info({ tournamentId, participants: participants.length }, 'Demo tournament created');
 
     // 라운드별 실행
     try {
@@ -122,7 +122,7 @@ export class DemoTournamentRunner {
           tournamentId,
           error: error instanceof Error ? error.message : String(error),
         },
-        '토너먼트 실행 오류',
+        'Tournament execution error',
       );
     }
   }
@@ -143,7 +143,7 @@ export class DemoTournamentRunner {
 
       logger.info(
         { tournamentId, round: roundNumber, participants: currentParticipants.length },
-        '라운드 시작',
+        'Round started',
       );
 
       // 페어링 생성
@@ -198,10 +198,10 @@ export class DemoTournamentRunner {
           status: 'betting',
         });
 
-        // 배팅 기간 (3초 대기)
+        // Betting period (wait 3 seconds)
         await this.delay(3000);
 
-        // 매치 시작으로 상태 변경
+        // Change status to match started
         match.status = 'active';
         this.socketManager.broadcastMatchUpdate({
           id: matchId,
@@ -219,12 +219,12 @@ export class DemoTournamentRunner {
         this.socketManager.broadcastFeedItem({
           id: `feed-${Date.now().toString(36)}`,
           type: 'match_started',
-          message: `${agentA?.name ?? '?'} vs ${agentB?.name ?? '?'} 매치 시작!`,
+          message: `${agentA?.name ?? '?'} vs ${agentB?.name ?? '?'} match started!`,
           timestamp: Date.now(),
           data: { matchId, tournamentId },
         });
 
-        // 매치 실행 (순차: A → B → 비교)
+        // Execute match (sequential: A → B → compare)
         const result = await this.runMatch(
           matchId,
           pairing.agentA,
@@ -233,7 +233,7 @@ export class DemoTournamentRunner {
           seed,
         );
 
-        // 결과 적용
+        // Apply result
         match.scoreA = result.scoreA;
         match.scoreB = result.scoreB;
         match.winner = result.winner;
@@ -241,11 +241,11 @@ export class DemoTournamentRunner {
 
         roundWinners.push(result.winner);
 
-        // ELO 업데이트
+        // Update ELO
         const loser = result.winner === pairing.agentA ? pairing.agentB : pairing.agentA;
         this.stateStore.updateElo(result.winner, loser);
 
-        // 매치 결과 브로드캐스트
+        // Broadcast match result
         const winnerAgent = this.stateStore.agents.get(result.winner);
         this.socketManager.broadcastMatchUpdate({
           id: matchId,
@@ -263,7 +263,7 @@ export class DemoTournamentRunner {
         this.socketManager.broadcastFeedItem({
           id: `feed-${Date.now().toString(36)}`,
           type: 'match_completed',
-          message: `${winnerAgent?.name ?? '?'} 승리! (${String(result.scoreA)} vs ${String(result.scoreB)})`,
+          message: `${winnerAgent?.name ?? '?'} wins! (${String(result.scoreA)} vs ${String(result.scoreB)})`,
           timestamp: Date.now(),
           data: {
             matchId,
@@ -273,7 +273,7 @@ export class DemoTournamentRunner {
           },
         });
 
-        // 매치 간 2초 대기
+        // Wait 2 seconds between matches
         await this.delay(2000);
       }
 
@@ -281,7 +281,7 @@ export class DemoTournamentRunner {
       roundNumber++;
     }
 
-    // 토너먼트 완료
+    // Tournament completion
     const tournament = this.stateStore.tournaments.get(tournamentId);
     if (tournament && currentParticipants.length === 1) {
       const champion = currentParticipants[0];
@@ -300,17 +300,17 @@ export class DemoTournamentRunner {
         this.socketManager.broadcastFeedItem({
           id: `feed-${Date.now().toString(36)}`,
           type: 'tournament_completed',
-          message: `토너먼트 #${String(this.tournamentCounter)} 완료! 우승: ${championAgent?.name ?? '?'}`,
+          message: `Tournament #${String(this.tournamentCounter)} completed! Champion: ${championAgent?.name ?? '?'}`,
           timestamp: Date.now(),
           data: { tournamentId, champion },
         });
 
-        logger.info({ tournamentId, champion: championAgent?.name }, '토너먼트 완료');
+        logger.info({ tournamentId, champion: championAgent?.name }, 'Tournament completed');
       }
     }
   }
 
-  /** 개별 매치 실행 (순차: A실행 → B실행 → 비교) */
+  /** Execute individual match (sequential: A execution → B execution → compare) */
   private async runMatch(
     matchId: string,
     agentA: string,
@@ -320,10 +320,10 @@ export class DemoTournamentRunner {
   ): Promise<{ scoreA: number; scoreB: number; winner: string }> {
     const difficulty: DifficultyTier = 3;
 
-    // Agent A 실행
+    // Execute Agent A
     const scoreA = await this.runSingleAgent(`${matchId}:a`, variant, seed, difficulty);
 
-    // Agent B 실행 (같은 미로, 같은 시드)
+    // Execute Agent B (same maze, same seed)
     const scoreB = await this.runSingleAgent(`${matchId}:b`, variant, seed, difficulty);
 
     return {
@@ -333,7 +333,7 @@ export class DemoTournamentRunner {
     };
   }
 
-  /** 단일 에이전트 게임 실행 및 완료 대기 */
+  /** Execute single agent game and wait for completion */
   private runSingleAgent(
     sessionId: string,
     variant: MazeVariant,
@@ -352,15 +352,15 @@ export class DemoTournamentRunner {
         agents: ['ai-agent'],
       });
 
-      // 게임 오버 콜백 설정 (기존 콜백 보존)
+      // Set game over callback (preserve existing callback)
       const originalCallback = this.gameLoopManager.getOnGameOver();
 
       this.gameLoopManager.setOnGameOver((sid: string, state: GameState) => {
-        // 원래 콜백 호출
+        // Call original callback
         originalCallback?.(sid, state);
 
         if (sid === fullSessionId) {
-          // 콜백 복원
+          // Restore callback
           if (originalCallback) {
             this.gameLoopManager.setOnGameOver(originalCallback);
           }
@@ -373,7 +373,7 @@ export class DemoTournamentRunner {
     });
   }
 
-  /** 대기 유틸 */
+  /** Delay utility */
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }

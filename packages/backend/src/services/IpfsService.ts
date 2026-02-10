@@ -63,10 +63,10 @@ export class IpfsService {
 
     if (this.fallbackMode) {
       logger.warn(
-        'IPFS API 키가 설정되지 않았습니다. Mock 모드로 동작합니다.',
+        'IPFS API key not configured. Operating in Mock mode.',
       );
     } else {
-      logger.info('IPFS 서비스 초기화 완료 (Pinata API 연결)');
+      logger.info('IPFS service initialized (Pinata API connected)');
     }
   }
 
@@ -104,7 +104,7 @@ export class IpfsService {
       if (!response.ok) {
         const errorText = await response.text();
         throw new IpfsUploadError(
-          `JSON 업로드 실패: ${response.statusText}`,
+          `JSON upload failed: ${response.statusText}`,
           response.status,
           errorText,
         );
@@ -115,14 +115,14 @@ export class IpfsService {
 
       if (!parsed.success) {
         throw new IpfsUploadError(
-          'Pinata 응답 스키마 검증 실패',
+          'Pinata response schema validation failed',
           undefined,
           parsed.error,
         );
       }
 
       const cid = parsed.data.IpfsHash;
-      logger.info({ cid, name }, 'JSON IPFS 업로드 성공');
+      logger.info({ cid, name }, 'JSON IPFS upload successful');
 
       return `ipfs://${cid}`;
     } catch (error) {
@@ -130,7 +130,7 @@ export class IpfsService {
         throw error;
       }
       throw new IpfsUploadError(
-        'JSON 업로드 중 예상치 못한 오류 발생',
+        'Unexpected error during JSON upload',
         undefined,
         error,
       );
@@ -176,7 +176,7 @@ export class IpfsService {
       if (!response.ok) {
         const errorText = await response.text();
         throw new IpfsUploadError(
-          `파일 업로드 실패: ${response.statusText}`,
+          `File upload failed: ${response.statusText}`,
           response.status,
           errorText,
         );
@@ -187,14 +187,14 @@ export class IpfsService {
 
       if (!parsed.success) {
         throw new IpfsUploadError(
-          'Pinata 응답 스키마 검증 실패',
+          'Pinata response schema validation failed',
           undefined,
           parsed.error,
         );
       }
 
       const cid = parsed.data.IpfsHash;
-      logger.info({ cid, fileName }, '파일 IPFS 업로드 성공');
+      logger.info({ cid, fileName }, 'File IPFS upload successful');
 
       return `ipfs://${cid}`;
     } catch (error) {
@@ -202,7 +202,7 @@ export class IpfsService {
         throw error;
       }
       throw new IpfsUploadError(
-        '파일 업로드 중 예상치 못한 오류 발생',
+        'Unexpected error during file upload',
         undefined,
         error,
       );
@@ -216,7 +216,7 @@ export class IpfsService {
    */
   async unpin(cid: string): Promise<void> {
     if (this.fallbackMode) {
-      logger.debug({ cid }, 'Mock 모드: unpin 무시');
+      logger.debug({ cid }, 'Mock mode: unpin ignored');
       return;
     }
 
@@ -238,19 +238,19 @@ export class IpfsService {
       if (!response.ok) {
         const errorText = await response.text();
         throw new IpfsUploadError(
-          `언핀 실패: ${response.statusText}`,
+          `Unpin failed: ${response.statusText}`,
           response.status,
           errorText,
         );
       }
 
-      logger.info({ cid: cleanCid }, 'IPFS 언핀 성공');
+      logger.info({ cid: cleanCid }, 'IPFS unpin successful');
     } catch (error) {
       if (error instanceof IpfsUploadError) {
         throw error;
       }
       throw new IpfsUploadError(
-        '언핀 중 예상치 못한 오류 발생',
+        'Unexpected error during unpin',
         undefined,
         error,
       );
@@ -258,11 +258,11 @@ export class IpfsService {
   }
 
   /**
-   * Fallback 모드에서 사용할 mock CID 생성
+   * Generate mock CID for fallback mode
    */
   private generateMockCid(): string {
     const mockCid = `mock-${crypto.randomUUID()}`;
-    logger.debug({ mockCid }, 'Mock CID 생성');
+    logger.debug({ mockCid }, 'Mock CID generated');
     return `ipfs://${mockCid}`;
   }
 }

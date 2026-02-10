@@ -75,8 +75,8 @@ export function loadEnv(): Env {
 
   if (!result.success) {
     const formatted = result.error.format();
-    console.error('❌ 환경 변수 검증 실패:', formatted);
-    throw new Error('환경 변수 검증에 실패했습니다. .env 파일을 확인하세요.');
+    console.error('❌ Environment variable validation failed:', formatted);
+    throw new Error('Environment variable validation failed. Please check your .env file.');
   }
 
   return result.data;

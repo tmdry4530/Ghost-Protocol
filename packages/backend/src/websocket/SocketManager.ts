@@ -86,10 +86,10 @@ export class SocketManager {
         scoreB: 0,
         gameLogHash: '',
       });
-      logger.info(`게임 종료: ${sessionId}, 최종 점수: ${String(state.score)}`);
+      logger.info(`Game ended: ${sessionId}, final score: ${String(state.score)}`);
     });
 
-    // 라운드 변경 시 이벤트
+    // Round change event
     this.gameLoopManager.setOnRoundChange((sessionId: string, round: number) => {
       const roundEvent: RoundStartEvent = {
         round,
@@ -99,7 +99,7 @@ export class SocketManager {
         powerDuration: 8,
       };
       this.io.to(sessionId).emit(WS_EVENTS.ROUND_START, roundEvent);
-      logger.info(`라운드 시작: ${sessionId}, 라운드 ${String(round)}`);
+      logger.info(`Round started: ${sessionId}, round ${String(round)}`);
     });
   }
 
@@ -109,7 +109,7 @@ export class SocketManager {
    */
   private setupConnectionHandler(): void {
     this.io.on('connection', (socket: Socket) => {
-      logger.info(`WebSocket 연결: ${socket.id}`);
+      logger.info(`WebSocket connected: ${socket.id}`);
       this.socketSessions.set(socket.id, new Set());
 
       // === 방 참가 이벤트 ===
@@ -134,21 +134,21 @@ export class SocketManager {
         void socket.join(ROOM_PREFIX.LOBBY);
         const sessions = this.socketSessions.get(socket.id);
         sessions?.add(ROOM_PREFIX.LOBBY);
-        logger.info(`${socket.id} -> lobby 참가`);
+        logger.info(`${socket.id} -> lobby joined`);
 
-        // 현재 매치/토너먼트 상태를 새 클라이언트에게 전송
+        // Send current match/tournament state to new client
         if (this.stateStore) {
-          // 모든 활성 매치를 전송
+          // Send all active matches
           for (const match of this.stateStore.matches.values()) {
             socket.emit('match_update', match);
           }
 
-          // 모든 활성 토너먼트를 전송
+          // Send all active tournaments
           for (const tournament of this.stateStore.tournaments.values()) {
             socket.emit('tournament_update', tournament);
           }
 
-          logger.info(`${socket.id} -> lobby 초기 상태 전송 완료 (매치: ${this.stateStore.matches.size.toString()}, 토너먼트: ${this.stateStore.tournaments.size.toString()})`);
+          logger.info(`${socket.id} -> lobby initial state sent (matches: ${this.stateStore.matches.size.toString()}, tournaments: ${this.stateStore.tournaments.size.toString()})`);
         }
       });
 
@@ -190,19 +190,19 @@ export class SocketManager {
    * @param data 클라이언트가 전송한 원시 데이터
    */
   private handleJoinRoom(socket: Socket, roomType: string, data: unknown): void {
-    // 런타임 타입 가드
+    // Runtime type guard
     if (data === null || data === undefined || typeof data !== 'object') {
-      socket.emit('error', { message: '유효하지 않은 방 참가 요청' });
+      socket.emit('error', { message: 'Invalid room join request' });
       return;
     }
 
     const dataObj = data as Record<string, unknown>;
 
-    // matchId, sessionId, tournamentId도 roomId로 수락 (프론트엔드 호환)
+    // Accept matchId, sessionId, tournamentId as roomId (frontend compatibility)
     const roomId =
       dataObj['roomId'] ?? dataObj['matchId'] ?? dataObj['sessionId'] ?? dataObj['tournamentId'];
     if (typeof roomId !== 'string' || roomId.length === 0) {
-      socket.emit('error', { message: '유효하지 않은 roomId' });
+      socket.emit('error', { message: 'Invalid roomId' });
       return;
     }
 
@@ -212,7 +212,7 @@ export class SocketManager {
     const sessions = this.socketSessions.get(socket.id);
     sessions?.add(fullRoomId);
 
-    logger.info(`${socket.id} -> ${fullRoomId} 참가`);
+    logger.info(`${socket.id} -> ${fullRoomId} joined`);
 
     // 새 클라이언트에게 현재 게임 상태 전체 동기화 전송
     const fullState = this.gameLoopManager.getFullSync(fullRoomId);
@@ -242,7 +242,7 @@ export class SocketManager {
 
     void socket.leave(roomId);
     this.socketSessions.get(socket.id)?.delete(roomId);
-    logger.info(`${socket.id} <- ${roomId} 퇴장`);
+    logger.info(`${socket.id} <- ${roomId} left`);
   }
 
   /**
@@ -284,7 +284,7 @@ export class SocketManager {
     }
 
     this.socketSessions.delete(socket.id);
-    logger.info(`WebSocket 해제: ${socket.id}`);
+    logger.info(`WebSocket disconnected: ${socket.id}`);
   }
 
   /**
@@ -355,7 +355,7 @@ export class SocketManager {
    */
   setChallengeOrchestrator(orchestrator: ChallengeMatchOrchestrator): void {
     this.challengeOrchestrator = orchestrator;
-    logger.info('ChallengeOrchestrator 연결 완료');
+    logger.info('ChallengeOrchestrator connected');
   }
 
   /**
@@ -364,7 +364,7 @@ export class SocketManager {
    */
   private handleChallengeAuth(socket: Socket, data: unknown): void {
     if (data === null || data === undefined || typeof data !== 'object') {
-      socket.emit('error', { message: '유효하지 않은 챌린지 인증 요청' });
+      socket.emit('error', { message: 'Invalid challenge authentication request' });
       return;
     }
 
@@ -373,38 +373,38 @@ export class SocketManager {
     const sessionToken = dataObj['sessionToken'];
 
     if (typeof matchId !== 'string' || typeof sessionToken !== 'string') {
-      socket.emit('error', { message: 'matchId와 sessionToken이 필요합니다' });
+      socket.emit('error', { message: 'matchId and sessionToken are required' });
       return;
     }
 
     if (!this.challengeOrchestrator) {
-      socket.emit('error', { message: '챌린지 시스템이 초기화되지 않았습니다' });
+      socket.emit('error', { message: 'Challenge system not initialized' });
       return;
     }
 
-    // 매치 정보 조회 및 토큰 검증
+    // Query match info and verify token
     const matchInfo = this.challengeOrchestrator.getMatch(matchId);
     if (!matchInfo || matchInfo.sessionToken !== sessionToken) {
-      socket.emit('error', { message: '유효하지 않은 매치 또는 세션 토큰' });
+      socket.emit('error', { message: 'Invalid match or session token' });
       return;
     }
 
-    // 매치 룸에 join
+    // Join match room
     const roomId = matchInfo.sessionId;
     void socket.join(roomId);
     const sessions = this.socketSessions.get(socket.id);
     sessions?.add(roomId);
 
-    // 에이전트 소켓 매핑 저장
+    // Store agent socket mapping
     this.agentSockets.set(socket.id, matchId);
 
-    // orchestrator에 연결 알림
+    // Notify orchestrator of connection
     const connected = this.challengeOrchestrator.onAgentConnected(matchId, socket.id);
     if (connected) {
       socket.emit(WS_EVENTS.AUTH_CHALLENGE_OK, { matchId, sessionId: roomId });
-      logger.info(`챌린지 에이전트 인증 성공: ${socket.id} → ${matchId}`);
+      logger.info(`Challenge agent authenticated: ${socket.id} → ${matchId}`);
     } else {
-      socket.emit('error', { message: '에이전트 연결 실패 — 매치가 대기 상태가 아닙니다' });
+      socket.emit('error', { message: 'Agent connection failed — match not in waiting state' });
     }
   }
 
@@ -433,7 +433,7 @@ export class SocketManager {
    */
   setStateStore(stateStore: ApiStateStore): void {
     this.stateStore = stateStore;
-    logger.info('StateStore 연결 완료');
+    logger.info('StateStore connected');
   }
 
   /**
@@ -444,6 +444,6 @@ export class SocketManager {
     this.socketSessions.clear();
     this.agentSockets.clear();
     this.gameLoopManager.shutdown();
-    logger.info('SocketManager 종료');
+    logger.info('SocketManager shutdown');
   }
 }

@@ -59,7 +59,7 @@ export class AgentFaucetError extends Error {
  * @throws AgentFaucetError - Faucet API 호출 실패 시
  */
 export async function fundAgentWallet(address: string): Promise<FaucetResponse> {
-  logger.info({ address }, 'Agent Faucet 호출 시작');
+  logger.info({ address }, 'Agent Faucet call started');
 
   try {
     const response = await fetch(AGENT_FAUCET_URL, {
@@ -80,12 +80,12 @@ export async function fundAgentWallet(address: string): Promise<FaucetResponse> 
 
       logger.error(
         { address, statusCode: response.status, error: errorMessage },
-        'Agent Faucet 호출 실패',
+        'Agent Faucet call failed',
       );
 
       throw new AgentFaucetError(
-        `Agent Faucet 실패: ${errorMessage}. ` +
-          `수동 faucet을 사용하세요: https://faucet.monad.xyz`,
+        `Agent Faucet failed: ${errorMessage}. ` +
+          `Use manual faucet: https://faucet.monad.xyz`,
       );
     }
 
@@ -98,7 +98,7 @@ export async function fundAgentWallet(address: string): Promise<FaucetResponse> 
         amount: data.amount,
         amountMON: ethers.formatEther(data.amount),
       },
-      'Agent Faucet 성공',
+      'Agent Faucet successful',
     );
 
     return data;
@@ -107,10 +107,10 @@ export async function fundAgentWallet(address: string): Promise<FaucetResponse> 
       throw error;
     }
 
-    // 네트워크 에러 등
-    logger.error({ error, address }, 'Agent Faucet 네트워크 에러');
+    // Network error etc
+    logger.error({ error, address }, 'Agent Faucet network error');
     throw new AgentFaucetError(
-      `Agent Faucet 네트워크 에러. 수동 faucet을 사용하세요: https://faucet.monad.xyz`,
+      `Agent Faucet network error. Use manual faucet: https://faucet.monad.xyz`,
       error,
     );
   }
@@ -143,30 +143,30 @@ export async function ensureAgentFunded(
 
   logger.debug(
     { address, balance: balanceMON, minimumBalance },
-    '에이전트 지갑 잔액 확인',
+    'Agent wallet balance check',
   );
 
   if (balance >= minimumWei) {
-    logger.info({ address, balance: balanceMON }, '잔액 충분 — 펀딩 스킵');
+    logger.info({ address, balance: balanceMON }, 'Balance sufficient — funding skipped');
     return;
   }
 
-  // 2. 잔액 부족 — faucet 호출
+  // 2. Insufficient balance — call faucet
   logger.warn(
     { address, balance: balanceMON, minimumBalance },
-    '잔액 부족 — Agent Faucet 호출',
+    'Insufficient balance — calling Agent Faucet',
   );
 
   const faucetResult = await fundAgentWallet(address);
 
-  // 3. Monad finality 대기 (2블록 = 800ms, 안전하게 1500ms)
+  // 3. Wait for Monad finality (2 blocks = 800ms, safely 1500ms)
   logger.debug(
     { txHash: faucetResult.txHash, waitMs: MONAD_FINALITY_MS },
-    'Monad finality 대기 중',
+    'Waiting for Monad finality',
   );
   await new Promise((resolve) => setTimeout(resolve, MONAD_FINALITY_MS));
 
-  // 4. 최종 잔액 확인
+  // 4. Final balance check
   const newBalance = await provider.getBalance(address);
   const newBalanceMON = ethers.formatEther(newBalance);
 
@@ -178,12 +178,12 @@ export async function ensureAgentFunded(
         minimumBalance,
         txHash: faucetResult.txHash,
       },
-      '펀딩 후에도 잔액 부족',
+      'Balance insufficient even after funding',
     );
     throw new AgentFaucetError(
-      `펀딩 후에도 잔액이 부족합니다 (현재: ${newBalanceMON} MON, 필요: ${minimumBalance.toString()} MON). ` +
-        `트랜잭션: ${faucetResult.txHash}. ` +
-        `수동 faucet을 사용하세요: https://faucet.monad.xyz`,
+      `Balance still insufficient after funding (current: ${newBalanceMON} MON, required: ${minimumBalance.toString()} MON). ` +
+        `Transaction: ${faucetResult.txHash}. ` +
+        `Use manual faucet: https://faucet.monad.xyz`,
     );
   }
 
@@ -194,7 +194,7 @@ export async function ensureAgentFunded(
       newBalance: newBalanceMON,
       txHash: faucetResult.txHash,
     },
-    'Agent Faucet 펀딩 완료',
+    'Agent Faucet funding completed',
   );
 }
 

@@ -59,12 +59,12 @@ export async function moltbookAuthMiddleware(
   if (!token || typeof token !== 'string') {
     logger.warn(
       { headers: req.headers },
-      'X-Moltbook-Identity 헤더 누락 또는 유효하지 않음',
+      'X-Moltbook-Identity header missing or invalid',
     );
     res.status(401).json({
       success: false,
-      error: 'X-Moltbook-Identity 헤더에 identity token이 없습니다',
-      hint: 'Moltbook API로 identity token을 발급받은 후 헤더에 포함하세요',
+      error: 'X-Moltbook-Identity header does not contain identity token',
+      hint: 'Obtain identity token from Moltbook API and include in header',
       authDocsUrl:
         'https://moltbook.com/auth.md?app=GhostProtocol&endpoint=' +
         encodeURIComponent(`${req.protocol}://${req.get('host') ?? 'localhost'}/api/v1/arena/register`) +
@@ -76,16 +76,16 @@ export async function moltbookAuthMiddleware(
   try {
     const profile = await verifyMoltbookIdentity(token);
 
-    // 클레임되지 않은 에이전트는 참가 불가
+    // Unclaimed agents cannot participate
     if (!profile.is_claimed) {
       logger.warn(
         { moltbookId: profile.id, name: profile.name },
-        '미클레임 에이전트의 참가 시도 거부',
+        'Unclaimed agent participation attempt rejected',
       );
       res.status(403).json({
         success: false,
-        error: '아직 인간 소유자에 의해 claim되지 않은 에이전트입니다',
-        hint: 'Moltbook에서 claim 절차를 완료한 후 다시 시도하세요',
+        error: 'Agent not yet claimed by human owner',
+        hint: 'Complete claim process on Moltbook and try again',
         moltbookProfile: {
           id: profile.id,
           name: profile.name,
@@ -95,15 +95,15 @@ export async function moltbookAuthMiddleware(
       return;
     }
 
-    // 비활성 에이전트 필터
+    // Filter inactive agents
     if (!profile.is_active) {
       logger.warn(
         { moltbookId: profile.id, name: profile.name },
-        '비활성 에이전트의 참가 시도 거부',
+        'Inactive agent participation attempt rejected',
       );
       res.status(403).json({
         success: false,
-        error: '비활성화된 Moltbook 에이전트입니다',
+        error: 'Deactivated Moltbook agent',
         moltbookProfile: {
           id: profile.id,
           name: profile.name,
@@ -113,7 +113,7 @@ export async function moltbookAuthMiddleware(
       return;
     }
 
-    // 검증 성공 — Request에 프로필 주입
+    // Verification successful — inject profile to Request
     req.moltbookAgent = profile;
     logger.debug(
       {
@@ -122,7 +122,7 @@ export async function moltbookAuthMiddleware(
         karma: profile.karma,
         owner: profile.owner.x_handle,
       },
-      '미들웨어 인증 성공',
+      'Middleware authentication successful',
     );
     next();
   } catch (error) {
@@ -134,8 +134,8 @@ export async function moltbookAuthMiddleware(
       return;
     }
 
-    // 예상치 못한 에러 — Express 에러 핸들러로 전달
-    logger.error({ error }, '미들웨어에서 예상치 못한 에러 발생');
+    // Unexpected error — forward to Express error handler
+    logger.error({ error }, 'Unexpected error in middleware');
     next(error);
   }
 }

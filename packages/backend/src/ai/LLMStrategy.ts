@@ -586,31 +586,31 @@ class ClaudeLLMStrategy implements LLMStrategyProvider {
       );
     }
 
-    // 1단계: 캐시 확인
+    // Stage 1: Check cache
     const cacheKey = this.cache.getCacheKey(request);
     const cached = this.cache.get(cacheKey);
     if (cached !== null) {
       return cached;
     }
 
-    // 2단계: 레이트 리밋 확인
+    // Stage 2: Check rate limit
     if (!this.rateLimiter.tryAcquire()) {
-      console.warn('LLM 전략 요청이 레이트 리밋에 도달했습니다');
+      console.warn('LLM strategy request hit rate limit');
       return this.getFallbackResponse();
     }
 
-    // 3단계: 프롬프트 생성
+    // Stage 3: Generate prompt
     let userPrompt = this.buildPrompt(request);
 
-    // 3-1단계: Tier 5 온체인 컨텍스트 주입 (MCP Bridge)
+    // Stage 3-1: Inject Tier 5 onchain context (MCP Bridge)
     if (this.patternAnalyzer !== null && this.enableMcpTools) {
       const onchainContext = await this.fetchOnchainContext();
       if (onchainContext.length > 0) {
-        userPrompt = `${userPrompt}\n\n=== 온체인 컨텍스트 (MCP Bridge) ===\n${onchainContext}\n\n위 온체인 데이터를 전략에 반영하세요. 상대 승률이 높으면 공격적으로,\n내가 언더독이면 보수적으로 플레이하여 관중의 서사에 부응하세요.`;
+        userPrompt = `${userPrompt}\n\n=== Onchain Context (MCP Bridge) ===\n${onchainContext}\n\nReflect the onchain data in your strategy. Play aggressively if opponent has higher win rate,\nplay conservatively if you're the underdog to match the narrative expected by spectators.`;
       }
     }
 
-    // 4단계: API 호출
+    // Stage 4: API call
     try {
       const message = await this.client.messages.create({
         model: this.model,
@@ -619,32 +619,32 @@ class ClaudeLLMStrategy implements LLMStrategyProvider {
         messages: [{ role: 'user', content: userPrompt }],
       });
 
-      // 5단계: 응답 텍스트 추출
+      // Stage 5: Extract response text
       const responseText = this.extractTextFromResponse(message);
       if (responseText === null) {
-        console.warn('LLM 응답에서 텍스트를 추출할 수 없습니다');
+        console.warn('Cannot extract text from LLM response');
         return this.getFallbackResponse();
       }
 
-      // 6단계: JSON 파싱 및 검증
+      // Stage 6: Parse and validate JSON
       const parsed = this.parseAndValidateResponse(responseText);
       if (parsed === null) {
-        console.warn('LLM 응답 JSON 파싱/검증에 실패했습니다');
+        console.warn('LLM response JSON parsing/validation failed');
         return this.getFallbackResponse();
       }
 
-      // 7단계: 캐시 저장 및 반환
+      // Stage 7: Cache and return
       this.cache.set(cacheKey, parsed);
       this.lastSuccessfulResponse = parsed;
       return parsed;
     } catch (error: unknown) {
-      // API 오류 처리 — 예외를 던지지 않고 폴백
+      // API error handling — fallback without throwing
       if (error instanceof Anthropic.APIError) {
-        console.warn(`Claude API 오류 (상태: ${String(error.status)}): ${error.message}`);
+        console.warn(`Claude API error (status: ${String(error.status)}): ${error.message}`);
       } else if (error instanceof Error) {
-        console.warn(`LLM 전략 요청 실패: ${error.message}`);
+        console.warn(`LLM strategy request failed: ${error.message}`);
       } else {
-        console.warn('LLM 전략 요청 중 알 수 없는 오류 발생');
+        console.warn('Unknown error during LLM strategy request');
       }
 
       return this.getFallbackResponse();
@@ -681,13 +681,13 @@ class ClaudeLLMStrategy implements LLMStrategyProvider {
    * @returns 온체인 컨텍스트 문자열 (실패 시 빈 문자열)
    */
   private async fetchOnchainContext(): Promise<string> {
-    // 컨트랙트 인스턴스가 없으면 조회 불가
+    // Cannot query without contract instances
     if (this.provider === null || this.arenaContract === null || this.wagerPoolContract === null) {
       return '';
     }
 
     try {
-      // McpTool → Anthropic Tool 형식으로 변환
+      // Convert McpTool → Anthropic Tool format
       const tools: Anthropic.Tool[] = mcpTools.map((tool: McpTool) => ({
         name: tool.name,
         description: tool.description,
@@ -700,22 +700,22 @@ class ClaudeLLMStrategy implements LLMStrategyProvider {
         },
       }));
 
-      // Claude에게 어떤 온체인 도구를 호출할지 결정하도록 요청
+      // Ask Claude to decide which onchain tools to call
       const toolSelectionMessage = await this.client.messages.create({
         model: this.model,
         max_tokens: 256,
-        system: '당신은 팩맨 게임 AI의 온체인 데이터 분석 보조입니다. 제공된 도구를 사용하여 전략 수립에 유용한 온체인 데이터를 조회하세요.',
+        system: 'You are an onchain data analysis assistant for Pac-Man game AI. Use the provided tools to query onchain data useful for strategy formulation.',
         messages: [
           {
             role: 'user',
-            content: '현재 매치에 필요한 온체인 데이터를 조회해주세요. 상대 에이전트 통계, 현재 배당률, 배팅 풀 크기 등을 확인하세요.',
+            content: 'Query onchain data needed for the current match. Check opponent agent stats, current odds, betting pool size, etc.',
           },
         ],
         tools,
         tool_choice: { type: 'auto' },
       });
 
-      // tool_use 블록들을 수집하여 실행
+      // Collect and execute tool_use blocks
       const contextParts: string[] = [];
 
       for (const block of toolSelectionMessage.content) {
@@ -732,18 +732,18 @@ class ClaudeLLMStrategy implements LLMStrategyProvider {
               `[${block.name}] ${JSON.stringify(result)}`,
             );
           } catch (toolError: unknown) {
-            // 개별 도구 실패는 무시하고 계속 진행
-            const errorMsg = toolError instanceof Error ? toolError.message : '알 수 없는 오류';
-            console.warn(`MCP 도구 '${block.name}' 실행 실패: ${errorMsg}`);
+            // Ignore individual tool failures and continue
+            const errorMsg = toolError instanceof Error ? toolError.message : 'Unknown error';
+            console.warn(`MCP tool '${block.name}' execution failed: ${errorMsg}`);
           }
         }
       }
 
       return contextParts.join('\n');
     } catch (error: unknown) {
-      // 전체 MCP 조회 실패 시 빈 문자열 반환 (graceful degradation)
-      const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
-      console.warn(`온체인 컨텍스트 조회 실패: ${errorMsg}`);
+      // Return empty string on full MCP query failure (graceful degradation)
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.warn(`Onchain context query failed: ${errorMsg}`);
       return '';
     }
   }
@@ -850,10 +850,10 @@ class ClaudeLLMStrategy implements LLMStrategyProvider {
       return this.lastSuccessfulResponse;
     }
 
-    // 기본 빈 응답 — 호출자(GhostAIController)가 기본 AI로 폴백
+    // Default empty response — caller (GhostAIController) falls back to default AI
     return {
       ghostTargets: new Map<GhostId, Position>(),
-      strategy: '폴백: LLM 응답 불가, 기본 AI 사용',
+      strategy: 'Fallback: LLM unavailable, using default AI',
       confidence: 0,
     };
   }

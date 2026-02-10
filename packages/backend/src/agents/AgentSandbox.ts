@@ -115,21 +115,21 @@ export class AgentSandbox {
    */
   async loadAgent(agentCode: string, agentName: string): Promise<void> {
     if (this.disposed) {
-      throw new Error('샌드박스가 이미 해제되었습니다. 새 인스턴스를 생성하세요.');
+      throw new Error('Sandbox already disposed. Create a new instance.');
     }
 
-    // 기존 리소스가 있으면 정리
+    // Clean up existing resources if any
     this.releaseInternalResources();
 
-    logger.info({ agentName }, '에이전트 코드 로드 시작');
+    logger.info({ agentName }, 'Agent code loading started');
 
-    // Isolate 생성 (메모리 제한 적용)
+    // Create Isolate (with memory limit)
     this.isolate = new ivm.Isolate({ memoryLimit: this.memoryLimitMB });
 
-    // 격리된 컨텍스트 생성
+    // Create isolated context
     this.context = await this.isolate.createContext();
 
-    // 에이전트 코드를 컴파일하고 실행하여 전역 함수를 등록
+    // Compile and run agent code to register global function
     const script = await this.isolate.compileScript(agentCode, {
       filename: `file:///${agentName}.js`,
     });
@@ -137,21 +137,21 @@ export class AgentSandbox {
     await script.run(this.context, { timeout: this.timeoutMs });
     script.release();
 
-    // onGameState 함수 참조 획득
+    // Acquire onGameState function reference
     const globalRef = this.context.global;
     this.onGameStateRef = await globalRef.get('onGameState', { reference: true });
 
-    // onGameState가 함수인지 검증
+    // Verify onGameState is a function
     if (this.onGameStateRef.typeof !== 'function') {
       this.onGameStateRef.release();
       this.onGameStateRef = null;
       throw new Error(
-        `에이전트 '${agentName}'에 전역 함수 onGameState가 정의되어 있지 않습니다.`,
+        `Agent '${agentName}' does not define global function onGameState.`,
       );
     }
 
     this._agentName = agentName;
-    logger.info({ agentName }, '에이전트 코드 로드 완료');
+    logger.info({ agentName }, 'Agent code loading completed');
   }
 
   /**
@@ -165,26 +165,26 @@ export class AgentSandbox {
    */
   async executeAction(state: GameState): Promise<AgentAction | null> {
     if (this.disposed) {
-      logger.warn('해제된 샌드박스에서 실행 시도');
+      logger.warn('Execution attempted on disposed sandbox');
       return null;
     }
 
     if (!this.isolate || !this.context || !this.onGameStateRef) {
-      logger.warn('에이전트가 로드되지 않은 상태에서 실행 시도');
+      logger.warn('Execution attempted without agent loaded');
       return null;
     }
 
-    // Isolate가 해제되었는지 확인
+    // Check if Isolate is disposed
     if (this.isolate.isDisposed) {
-      logger.warn({ agentName: this._agentName }, 'Isolate가 이미 해제된 상태');
+      logger.warn({ agentName: this._agentName }, 'Isolate already disposed');
       return null;
     }
 
     try {
-      // GameState를 ExternalCopy로 변환하여 격리 경계를 넘긴다
+      // Convert GameState to ExternalCopy to cross isolation boundary
       const stateCopy = new ivm.ExternalCopy(state);
 
-      // onGameState 함수 호출 (타임아웃 적용, 결과를 copy로 받음)
+      // Call onGameState function (with timeout, receive result as copy)
       const result: unknown = await this.onGameStateRef.apply(
         undefined,
         [stateCopy.copyInto()],
@@ -193,11 +193,11 @@ export class AgentSandbox {
 
       stateCopy.release();
 
-      // 반환값 검증
+      // Validate return value
       if (!isValidAgentAction(result)) {
         logger.warn(
           { agentName: this._agentName, result },
-          '에이전트가 유효하지 않은 행동을 반환 — 턴 몰수',
+          'Agent returned invalid action — turn forfeited',
         );
         return null;
       }
@@ -206,31 +206,31 @@ export class AgentSandbox {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
 
-      // 타임아웃 에러 처리
+      // Handle timeout error
       if (message.includes('Script execution timed out')) {
         logger.warn(
           { agentName: this._agentName, timeoutMs: this.timeoutMs },
-          '에이전트 실행 타임아웃 — 턴 몰수',
+          'Agent execution timeout — turn forfeited',
         );
         return null;
       }
 
-      // 메모리 초과 에러 처리
+      // Handle memory exceeded error
       if (
         message.includes('Isolate was disposed during execution') ||
         message.includes('out of memory')
       ) {
         logger.error(
           { agentName: this._agentName },
-          '에이전트 메모리 한도 초과 — 턴 몰수',
+          'Agent memory limit exceeded — turn forfeited',
         );
         return null;
       }
 
-      // 기타 에러 처리
+      // Handle other errors
       logger.error(
         { agentName: this._agentName, error: message },
-        '에이전트 실행 중 에러 발생 — 턴 몰수',
+        'Error during agent execution — turn forfeited',
       );
       return null;
     }
@@ -264,20 +264,20 @@ export class AgentSandbox {
       return;
     }
 
-    logger.info({ agentName: this._agentName }, '샌드박스 리소스 해제');
+    logger.info({ agentName: this._agentName }, 'Sandbox resources released');
     this.releaseInternalResources();
     this.disposed = true;
   }
 
   /**
-   * 내부 리소스 정리 (재로드 시에도 사용)
+   * Clean up internal resources (also used during reload)
    */
   private releaseInternalResources(): void {
     if (this.onGameStateRef) {
       try {
         this.onGameStateRef.release();
       } catch {
-        // 이미 해제된 경우 무시
+        // Ignore if already released
       }
       this.onGameStateRef = null;
     }
@@ -286,7 +286,7 @@ export class AgentSandbox {
       try {
         this.context.release();
       } catch {
-        // 이미 해제된 경우 무시
+        // Ignore if already released
       }
       this.context = null;
     }
@@ -295,7 +295,7 @@ export class AgentSandbox {
       try {
         this.isolate.dispose();
       } catch {
-        // 이미 해제된 경우 무시
+        // Ignore if already released
       }
     }
     this.isolate = null;

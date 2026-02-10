@@ -15,7 +15,7 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  logger.error({ err }, '요청 처리 중 에러 발생');
+  logger.error({ err }, 'Error during request processing');
 
   if (err instanceof NotFoundError) {
     res.status(404).json({
@@ -50,9 +50,9 @@ export function errorHandler(
     return;
   }
 
-  // 알 수 없는 에러 — 내부 서버 에러
+  // Unknown error — internal server error
   res.status(500).json({
     error: 'INTERNAL_SERVER_ERROR',
-    message: '내부 서버 에러가 발생했습니다',
+    message: 'Internal server error occurred',
   });
 }

@@ -79,12 +79,12 @@ export async function verifyMoltbookIdentity(
   const appKey = env.MOLTBOOK_APP_API_KEY;
 
   if (!appKey) {
-    logger.error('MOLTBOOK_APP_API_KEY 환경변수가 설정되지 않았습니다');
-    throw new MoltbookAuthError('서버 설정 오류: Moltbook API key 미설정', 500);
+    logger.error('MOLTBOOK_APP_API_KEY environment variable not set');
+    throw new MoltbookAuthError('Server configuration error: Moltbook API key not set', 500);
   }
 
   try {
-    logger.debug({ apiBase }, 'Moltbook identity 검증 시도');
+    logger.debug({ apiBase }, 'Attempting Moltbook identity verification');
 
     const response = await fetch(`${apiBase}/agents/verify-identity`, {
       method: 'POST',
@@ -100,11 +100,11 @@ export async function verifyMoltbookIdentity(
         error?: string;
       };
       const errorMessage =
-        errorData.error ?? `Moltbook API 에러: ${response.statusText}`;
+        errorData.error ?? `Moltbook API error: ${response.statusText}`;
 
       logger.warn(
         { statusCode: response.status, error: errorMessage },
-        'Moltbook identity 검증 실패',
+        'Moltbook identity verification failed',
       );
 
       throw new MoltbookAuthError(errorMessage, response.status);
@@ -120,7 +120,7 @@ export async function verifyMoltbookIdentity(
         karma: profile.karma,
         isClaimed: profile.is_claimed,
       },
-      'Moltbook identity 검증 성공',
+      'Moltbook identity verification successful',
     );
 
     return profile;
@@ -129,10 +129,10 @@ export async function verifyMoltbookIdentity(
       throw error;
     }
 
-    // 네트워크 에러 등 예상치 못한 에러
-    logger.error({ error }, 'Moltbook API 호출 중 예상치 못한 에러');
+    // Network error or unexpected error
+    logger.error({ error }, 'Unexpected error during Moltbook API call');
     throw new MoltbookAuthError(
-      '네트워크 에러: Moltbook API 연결 실패',
+      'Network error: Moltbook API connection failed',
       503,
     );
   }

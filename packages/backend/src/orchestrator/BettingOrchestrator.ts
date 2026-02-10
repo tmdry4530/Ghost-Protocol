@@ -66,7 +66,7 @@ export class BettingOrchestrator {
   ): void {
     const window = windowSeconds ?? this.calculateBettingWindow();
 
-    logger.info({ matchId, window }, '배팅 창 열기');
+    logger.info({ matchId, window }, 'Opening betting window');
 
     // 초기 배팅 풀 생성
     const pool: BettingPool = {
@@ -164,7 +164,7 @@ export class BettingOrchestrator {
     if (session.oddsInterval) clearInterval(session.oddsInterval);
     if (session.windowTimer) clearTimeout(session.windowTimer);
 
-    logger.info({ matchId }, '배팅 잠금 시작');
+    logger.info({ matchId }, 'Locking bets');
 
     try {
       // 온체인 잠금
@@ -187,12 +187,12 @@ export class BettingOrchestrator {
         totalPool: session.pool.totalPool.toString(),
       });
 
-      logger.info({ matchId }, '배팅 잠금 완료');
+      logger.info({ matchId }, 'Bets locked');
     } catch (error) {
       logger.error({
         matchId,
         error: error instanceof Error ? error.message : String(error),
-      }, '배팅 잠금 실패');
+      }, 'Failed to lock bets');
     }
   }
 
@@ -205,7 +205,7 @@ export class BettingOrchestrator {
     const session = this.sessions.get(matchId);
     if (!session) return;
 
-    logger.info({ matchId, winner }, '배팅 정산 시작');
+    logger.info({ matchId, winner }, 'Settling bets');
 
     try {
       // 온체인 정산 (winner를 uint8로 변환: agentA=0, agentB=1)
@@ -224,12 +224,12 @@ export class BettingOrchestrator {
       // 세션 정리
       this.sessions.delete(matchId);
 
-      logger.info({ matchId, winner }, '배팅 정산 완료');
+      logger.info({ matchId, winner }, 'Bets settled');
     } catch (error) {
       logger.error({
         matchId,
         error: error instanceof Error ? error.message : String(error),
-      }, '배팅 정산 실패');
+      }, 'Failed to settle bets');
     }
   }
 
@@ -305,6 +305,6 @@ export class BettingOrchestrator {
       if (session.oddsInterval) clearInterval(session.oddsInterval);
       this.sessions.delete(matchId);
     }
-    logger.info('BettingOrchestrator 종료');
+    logger.info('BettingOrchestrator shutdown');
   }
 }

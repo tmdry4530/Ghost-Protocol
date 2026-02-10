@@ -118,7 +118,7 @@ export class GameLoopManager {
    */
   createSession(config: GameSessionConfig): void {
     if (this.sessions.has(config.sessionId)) {
-      throw new Error(`세션이 이미 존재합니다: ${config.sessionId}`);
+      throw new Error(`Session already exists: ${config.sessionId}`);
     }
 
     const engineConfig: GameStateManagerConfig = {
@@ -143,7 +143,7 @@ export class GameLoopManager {
     };
 
     this.sessions.set(config.sessionId, session);
-    logger.info(`게임 세션 생성: ${config.sessionId} (${config.sessionType})`);
+    logger.info(`Game session created: ${config.sessionId} (${config.sessionType})`);
   }
 
   /**
@@ -212,7 +212,7 @@ export class GameLoopManager {
       }
     }, intervalMs);
 
-    logger.info(`게임 루프 시작: ${sessionId}`);
+    logger.info(`Game loop started: ${sessionId}`);
   }
 
   /**
@@ -234,7 +234,7 @@ export class GameLoopManager {
       session.replayRecorder.stopRecording([state.score]);
     }
 
-    logger.info(`게임 루프 중지: ${sessionId}`);
+    logger.info(`Game loop stopped: ${sessionId}`);
   }
 
   /**
@@ -244,7 +244,7 @@ export class GameLoopManager {
   removeSession(sessionId: string): void {
     this.stopSession(sessionId);
     this.sessions.delete(sessionId);
-    logger.info(`게임 세션 삭제: ${sessionId}`);
+    logger.info(`Game session removed: ${sessionId}`);
   }
 
   /**
@@ -314,7 +314,7 @@ export class GameLoopManager {
     for (const [sessionId] of this.sessions) {
       this.removeSession(sessionId);
     }
-    logger.info('모든 게임 세션 종료');
+    logger.info('All game sessions shutdown');
   }
 
   /**
@@ -326,7 +326,7 @@ export class GameLoopManager {
   private getSession(sessionId: string): GameSession {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      throw new Error(`세션을 찾을 수 없습니다: ${sessionId}`);
+      throw new Error(`Session not found: ${sessionId}`);
     }
     return session;
   }

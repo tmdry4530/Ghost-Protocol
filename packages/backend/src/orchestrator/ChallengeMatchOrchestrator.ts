@@ -115,7 +115,7 @@ export class ChallengeMatchOrchestrator {
 
     if (activeCount >= this.MAX_CONCURRENT) {
       throw new Error(
-        `동시 활성 챌린지 한도 초과 (${String(this.MAX_CONCURRENT)}). 잠시 후 다시 시도하세요.`,
+        `Concurrent active challenge limit exceeded (${String(this.MAX_CONCURRENT)}). Please try again later.`,
       );
     }
 
@@ -152,7 +152,7 @@ export class ChallengeMatchOrchestrator {
       match: this.toPublicInfo(match),
     } as Record<string, unknown>);
 
-    this.logger.info({ matchId: id, agentId, difficulty }, '챌린지 생성됨');
+    this.logger.info({ matchId: id, agentId, difficulty }, 'Challenge created');
 
     return this.toPublicInfo(match);
   }
@@ -168,7 +168,7 @@ export class ChallengeMatchOrchestrator {
     if (!match || match.status !== 'waiting_agent') {
       this.logger.warn(
         { matchId, socketId },
-        '에이전트 연결 실패 — 잘못된 매치 상태',
+        'Agent connection failed - invalid match state',
       );
       return false;
     }
@@ -181,14 +181,14 @@ export class ChallengeMatchOrchestrator {
       match.expiryTimer = null;
     }
 
-    // 배팅 오케스트레이터가 있으면 배팅 창 → 카운트다운, 없으면 바로 카운트다운
+    // If betting orchestrator exists, betting window → countdown, otherwise proceed directly to countdown
     if (this.bettingOrchestrator) {
       match.status = 'betting';
-      this.logger.info({ matchId, socketId }, '에이전트 연결됨 — 배팅 창 오픈');
+      this.logger.info({ matchId, socketId }, 'Agent connected - opening betting window');
       this.startBettingWindow(matchId);
     } else {
       match.status = 'countdown';
-      this.logger.info({ matchId, socketId }, '에이전트 연결됨 — 카운트다운 시작');
+      this.logger.info({ matchId, socketId }, 'Agent connected - starting countdown');
       this.startCountdown(matchId);
     }
 
@@ -218,7 +218,7 @@ export class ChallengeMatchOrchestrator {
     const match = this.matches.get(matchId);
     if (!match) return;
 
-    this.logger.warn({ matchId, socketId }, '에이전트 연결 해제됨');
+    this.logger.warn({ matchId, socketId }, 'Agent disconnected');
 
     if (match.status === 'active') {
       match.reconnectTimer = setTimeout(() => {
@@ -248,7 +248,7 @@ export class ChallengeMatchOrchestrator {
     match.agentSocketId = socketId;
     this.agentSocketMap.set(socketId, matchId);
 
-    this.logger.info({ matchId, socketId }, '에이전트 재연결됨');
+    this.logger.info({ matchId, socketId }, 'Agent reconnected');
     return true;
   }
 
@@ -270,9 +270,9 @@ export class ChallengeMatchOrchestrator {
     return match ? this.toPublicInfo(match) : null;
   }
 
-  /** 오케스트레이터 종료 — 모든 활성 매치 정리 */
+  /** Orchestrator shutdown - cleanup all active matches */
   shutdown(): void {
-    this.logger.info('챌린지 오케스트레이터 종료 중...');
+    this.logger.info('Shutting down challenge orchestrator...');
 
     for (const match of this.matches.values()) {
       if (match.status === 'active') {
@@ -280,7 +280,7 @@ export class ChallengeMatchOrchestrator {
           this.gameLoopManager.stopSession(match.sessionId);
           this.gameLoopManager.removeSession(match.sessionId);
         } catch {
-          this.logger.error({ matchId: match.id }, '세션 정리 실패');
+          this.logger.error({ matchId: match.id }, 'Session cleanup failed');
         }
       }
       this.cleanupMatch(match.id);
@@ -290,7 +290,7 @@ export class ChallengeMatchOrchestrator {
     this.agentSocketMap.clear();
   }
 
-  /** 배팅 창 열기 (30초 후 잠금 → 카운트다운) */
+  /** Open betting window (lock after 30 seconds → countdown) */
   private startBettingWindow(matchId: string): void {
     const match = this.matches.get(matchId);
     if (!match || !this.bettingOrchestrator) return;
@@ -306,16 +306,16 @@ export class ChallengeMatchOrchestrator {
 
     this.logger.info(
       { matchId, onChainMatchId: match.onChainMatchId, windowSeconds: this.BETTING_WINDOW_SECONDS },
-      '배팅 창 오픈됨',
+      'Betting window opened',
     );
 
-    // 배팅 창 종료 후 잠금 → 카운트다운 전이
+    // Lock after betting window ends → transition to countdown
     match.expiryTimer = setTimeout(() => {
       void this.closeBettingAndStartCountdown(matchId);
     }, this.BETTING_WINDOW_SECONDS * 1000);
   }
 
-  /** 배팅 잠금 후 카운트다운 시작 */
+  /** Start countdown after locking bets */
   private async closeBettingAndStartCountdown(matchId: string): Promise<void> {
     const match = this.matches.get(matchId);
     if (!match || match.status !== 'betting') return;
@@ -323,9 +323,9 @@ export class ChallengeMatchOrchestrator {
     if (this.bettingOrchestrator) {
       try {
         await this.bettingOrchestrator.lockBets(String(match.onChainMatchId));
-        this.logger.info({ matchId }, '배팅 잠금 완료');
+        this.logger.info({ matchId }, 'Bets locked');
       } catch {
-        this.logger.error({ matchId }, '배팅 잠금 실패 — 게임은 계속 진행');
+        this.logger.error({ matchId }, 'Failed to lock bets - game continues');
       }
     }
 
@@ -333,7 +333,7 @@ export class ChallengeMatchOrchestrator {
     this.startCountdown(matchId);
   }
 
-  /** 카운트다운 시작 (3, 2, 1 → 게임 시작) */
+  /** Start countdown (3, 2, 1 → game start) */
   private startCountdown(matchId: string): void {
     const match = this.matches.get(matchId);
     if (!match) return;
@@ -354,7 +354,7 @@ export class ChallengeMatchOrchestrator {
     }, 1000);
   }
 
-  /** 게임 세션 생성 및 시작 */
+  /** Create and start game session */
   private startGame(matchId: string): void {
     const match = this.matches.get(matchId);
     if (!match) return;
@@ -372,7 +372,7 @@ export class ChallengeMatchOrchestrator {
       this.gameLoopManager.startSession(match.sessionId);
       match.status = 'active';
 
-      // 게임 시간 제한 타이머
+      // Game duration limit timer
       match.gameDurationTimer = setTimeout(() => {
         this.handleGameTimeout(matchId);
       }, this.GAME_DURATION_LIMIT);
@@ -384,16 +384,16 @@ export class ChallengeMatchOrchestrator {
 
       this.logger.info(
         { matchId, sessionId: match.sessionId },
-        '게임 시작됨',
+        'Game started',
       );
     } catch {
-      this.logger.error({ matchId }, '게임 시작 실패');
+      this.logger.error({ matchId }, 'Failed to start game');
       match.status = 'expired';
       this.cleanupMatch(matchId);
     }
   }
 
-  /** 게임 종료 처리 (GameLoopManager 콜백) */
+  /** Handle game over (GameLoopManager callback) */
   private handleGameOver(sessionId: string, state: GameState): void {
     if (!sessionId.startsWith('match:challenge-')) return;
 
@@ -401,7 +401,7 @@ export class ChallengeMatchOrchestrator {
     const match = this.matches.get(matchId);
     if (!match || match.status === 'completed') return;
 
-    // 승패 판정: lives ≤ 0 → 고스트 승리, 그 외 → 팩맨 승리
+    // Win condition: lives ≤ 0 → ghost wins, otherwise → pacman wins
     const winner: 'pacman' | 'ghost' = state.lives <= 0 ? 'ghost' : 'pacman';
 
     match.score = state.score;
@@ -413,7 +413,7 @@ export class ChallengeMatchOrchestrator {
       match.gameDurationTimer = null;
     }
 
-    // 결과 브로드캐스트
+    // Broadcast result
     this.socketManager.broadcastToLobby(WS_EVENTS.MATCH_RESULT, {
       matchId: match.id,
       winner,
@@ -424,40 +424,40 @@ export class ChallengeMatchOrchestrator {
     this.socketManager.broadcastFeedItem({
       id: `feed-${Date.now().toString(36)}`,
       type: 'challenge_completed',
-      message: `챌린지 완료! ${winner === 'pacman' ? '에이전트' : '고스트'} 승리 (점수: ${String(state.score)})`,
+      message: `Challenge completed! ${winner === 'pacman' ? 'Agent' : 'Ghost'} wins (Score: ${String(state.score)})`,
       timestamp: Date.now(),
       data: { matchId: match.id, winner, score: state.score },
     });
 
     this.logger.info(
       { matchId: match.id, winner, score: state.score, lives: state.lives },
-      '게임 종료 — 결과 전송',
+      'Game over - result sent',
     );
 
-    // 배팅 정산 (pacman=agentA, ghost=agentB)
+    // Settle bets (pacman=agentA, ghost=agentB)
     void this.settleMatchBets(match, winner);
 
     try {
       this.gameLoopManager.removeSession(sessionId);
     } catch {
-      this.logger.error({ matchId: match.id }, '세션 제거 실패');
+      this.logger.error({ matchId: match.id }, 'Failed to remove session');
     }
 
     this.cleanupMatch(matchId);
   }
 
-  /** 게임 타임아웃 처리 (5분 경과) */
+  /** Handle game timeout (5 minutes elapsed) */
   private handleGameTimeout(matchId: string): void {
     const match = this.matches.get(matchId);
     if (!match || match.status !== 'active') return;
 
-    this.logger.warn({ matchId }, '게임 타임아웃 — 시간 초과로 종료');
+    this.logger.warn({ matchId }, 'Game timeout - terminated due to time limit');
 
     let state: GameState | null = null;
     try {
       state = this.gameLoopManager.getSessionState(match.sessionId);
     } catch {
-      this.logger.error({ matchId }, '세션 상태 조회 실패');
+      this.logger.error({ matchId }, 'Failed to retrieve session state');
     }
 
     const winner: 'pacman' | 'ghost' =
@@ -482,7 +482,7 @@ export class ChallengeMatchOrchestrator {
       this.gameLoopManager.stopSession(match.sessionId);
       this.gameLoopManager.removeSession(match.sessionId);
     } catch {
-      this.logger.error({ matchId }, '세션 정리 실패');
+      this.logger.error({ matchId }, 'Session cleanup failed');
     }
 
     this.cleanupMatch(matchId);
@@ -493,13 +493,13 @@ export class ChallengeMatchOrchestrator {
     const match = this.matches.get(matchId);
     if (!match || match.status !== 'waiting_agent') return;
 
-    this.logger.warn({ matchId }, '챌린지 만료 — 에이전트 미연결');
+    this.logger.warn({ matchId }, 'Challenge expired — agent did not connect');
     match.status = 'expired';
 
     this.socketManager.broadcastFeedItem({
       id: `feed-${Date.now().toString(36)}`,
       type: 'challenge_expired',
-      message: `챌린지 만료 — 에이전트가 시간 내에 접속하지 않았습니다`,
+      message: `Challenge expired — agent did not connect in time`,
       timestamp: Date.now(),
       data: { matchId },
     });
@@ -512,7 +512,7 @@ export class ChallengeMatchOrchestrator {
     const match = this.matches.get(matchId);
     if (!match || match.status !== 'active') return;
 
-    this.logger.warn({ matchId }, '재연결 실패 — 고스트 승리로 처리');
+    this.logger.warn({ matchId }, 'Reconnect failed — ghost wins by default');
 
     match.winner = 'ghost';
     match.status = 'completed';
@@ -521,7 +521,7 @@ export class ChallengeMatchOrchestrator {
     try {
       state = this.gameLoopManager.getSessionState(match.sessionId);
     } catch {
-      this.logger.error({ matchId }, '세션 상태 조회 실패');
+      this.logger.error({ matchId }, 'Failed to retrieve session state');
     }
 
     match.score = state?.score ?? 0;
@@ -541,7 +541,7 @@ export class ChallengeMatchOrchestrator {
       this.gameLoopManager.stopSession(match.sessionId);
       this.gameLoopManager.removeSession(match.sessionId);
     } catch {
-      this.logger.error({ matchId }, '세션 정리 실패');
+      this.logger.error({ matchId }, 'Session cleanup failed');
     }
 
     this.cleanupMatch(matchId);

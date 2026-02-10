@@ -73,7 +73,7 @@ export class MoltbookSocialService {
       const waitTime = Math.ceil((POST_COOLDOWN_MS - (Date.now() - this.lastPostTime)) / 1000 / 60);
       logger.warn(
         { tournamentId: result.tournamentId, waitTime },
-        `30분 쿨다운 중 — ${waitTime}분 후 재시도 가능. 큐에 추가합니다.`
+        `30min cooldown active — retry in ${waitTime}min. Adding to queue.`
       );
       this.pendingPosts.push(result);
       return;
@@ -96,18 +96,18 @@ export class MoltbookSocialService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Moltbook API 오류 (${response.status}): ${errorText}`);
+        throw new Error(`Moltbook API error (${response.status}): ${errorText}`);
       }
 
       this.lastPostTime = Date.now();
       logger.info(
         { tournamentId: result.tournamentId },
-        '토너먼트 결과를 m/ghost-protocol에 성공적으로 포스팅했습니다.'
+        'Tournament result successfully posted to m/ghost-protocol.'
       );
     } catch (error) {
       logger.error(
         { error, tournamentId: result.tournamentId },
-        '토너먼트 결과 포스팅 실패'
+        'Tournament result posting failed'
       );
       throw error;
     }
@@ -132,13 +132,13 @@ export class MoltbookSocialService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Moltbook API 오류 (${response.status}): ${errorText}`);
+        throw new Error(`Moltbook API error (${response.status}): ${errorText}`);
       }
 
       const data = await response.json() as { posts: unknown[] };
       return data.posts;
     } catch (error) {
-      logger.error({ error, agentName }, '에이전트 포스트 검색 실패');
+      logger.error({ error, agentName }, 'Agent post search failed');
       throw error;
     }
   }
@@ -166,12 +166,12 @@ export class MoltbookSocialService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Moltbook API 오류 (${response.status}): ${errorText}`);
+        throw new Error(`Moltbook API error (${response.status}): ${errorText}`);
       }
 
-      logger.info('m/ghost-protocol submolt를 성공적으로 생성했습니다.');
+      logger.info('m/ghost-protocol submolt successfully created.');
     } catch (error) {
-      logger.error({ error }, 'Submolt 생성 실패');
+      logger.error({ error }, 'Submolt creation failed');
       throw error;
     }
   }

@@ -73,12 +73,12 @@ export class MatchScheduler {
 
     // 워커 이벤트 설정
     this.worker.on('completed', (job: Job<MatchJobData, MatchJobResult>) => {
-      logger.info({ matchId: job.data.matchId }, '매치 완료');
+      logger.info({ matchId: job.data.matchId }, 'Match completed');
       void this.onMatchComplete?.(job.returnvalue);
     });
 
     this.worker.on('failed', (job: Job<MatchJobData, MatchJobResult> | undefined, error: Error) => {
-      logger.error({ matchId: job?.data.matchId, error: error.message }, '매치 실패');
+      logger.error({ matchId: job?.data.matchId, error: error.message }, 'Match failed');
     });
   }
 
@@ -101,7 +101,7 @@ export class MatchScheduler {
         agentA: data.agentA,
         agentB: data.agentB,
       },
-      '매치 스케줄링',
+      'Scheduling match',
     );
 
     return this.queue.add(`match-${data.matchId}`, data, {
@@ -116,7 +116,7 @@ export class MatchScheduler {
   async scheduleRoundMatches(
     matches: readonly MatchJobData[],
   ): Promise<Job<MatchJobData, MatchJobResult>[]> {
-    logger.info({ count: matches.length }, '라운드 매치 일괄 스케줄링');
+    logger.info({ count: matches.length }, 'Batch scheduling round matches');
 
     const jobs = await Promise.all(matches.map((match) => this.scheduleMatch(match)));
 
@@ -130,9 +130,9 @@ export class MatchScheduler {
     const { matchId, agentA, agentB, variant, seed, difficulty } = job.data;
     const sessionId = `match:${matchId}`;
 
-    logger.info({ matchId, agentA, agentB }, '매치 실행 시작');
+    logger.info({ matchId, agentA, agentB }, 'Match execution started');
 
-    // 게임 세션 생성
+    // Create game session
     this.gameLoopManager.createSession({
       sessionId,
       sessionType: 'match',
@@ -142,18 +142,18 @@ export class MatchScheduler {
       agents: [agentA, agentB],
     });
 
-    // 게임 실행 및 완료 대기
+    // Execute game and wait for completion
     return new Promise<MatchJobResult>((resolve) => {
-      // 게임 오버 콜백에서 결과 반환
+      // Return result from game over callback
       this.gameLoopManager.setOnGameOver((sid: string, state: GameState) => {
         if (sid !== sessionId) return;
 
         const replayData = this.gameLoopManager.getReplayData(sessionId);
         this.gameLoopManager.removeSession(sessionId);
 
-        // 아레나 모드: scoreA vs scoreB (간단화 - 같은 미로에서 각각 플레이)
+        // Arena mode: scoreA vs scoreB (simplified - each plays in same maze)
         const scoreA = state.score;
-        const scoreB = 0; // 두 번째 에이전트 점수 (향후 듀얼 모드 구현)
+        const scoreB = 0; // Second agent score (dual mode to be implemented)
         const winner = scoreA >= scoreB ? agentA : agentB;
 
         resolve({
@@ -166,32 +166,32 @@ export class MatchScheduler {
         });
       });
 
-      // 게임 시작
+      // Start game
       this.gameLoopManager.startSession(sessionId);
     });
   }
 
   /**
-   * 대기 중인 작업 수 조회
+   * Query number of pending jobs
    */
   async getPendingCount(): Promise<number> {
     return this.queue.getWaitingCount();
   }
 
   /**
-   * 활성 작업 수 조회
+   * Query number of active jobs
    */
   async getActiveCount(): Promise<number> {
     return this.queue.getActiveCount();
   }
 
   /**
-   * 정리 (서버 종료 시)
+   * Cleanup (on server shutdown)
    */
   async shutdown(): Promise<void> {
     await this.worker.close();
     await this.queue.close();
     this.gameLoopManager.shutdown();
-    logger.info('MatchScheduler 종료');
+    logger.info('MatchScheduler shutdown');
   }
 }

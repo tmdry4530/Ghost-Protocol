@@ -61,7 +61,7 @@ export class InMemoryMatchScheduler {
 
   /** 매치 스케줄링 */
   async scheduleMatch(data: MatchJobData): Promise<void> {
-    logger.info({ matchId: data.matchId, agentA: data.agentA, agentB: data.agentB }, '매치 스케줄링');
+    logger.info({ matchId: data.matchId, agentA: data.agentA, agentB: data.agentB }, 'Scheduling match');
 
     if (this.activeMatches.size < this.concurrency) {
       await this.processMatch(data);
@@ -72,23 +72,23 @@ export class InMemoryMatchScheduler {
 
   /** 여러 매치 동시 스케줄링 */
   async scheduleRoundMatches(matches: readonly MatchJobData[]): Promise<void> {
-    logger.info({ count: matches.length }, '라운드 매치 일괄 스케줄링');
+    logger.info({ count: matches.length }, 'Batch scheduling round matches');
     const promises = matches.map((match) => this.scheduleMatch(match));
     await Promise.all(promises);
   }
 
-  /** 매치 처리 — 순차 실행 (A 플레이 → B 플레이 → 점수 비교) */
+  /** Process match - sequential execution (A plays → B plays → compare scores) */
   private async processMatch(data: MatchJobData): Promise<void> {
     const { matchId, agentA, agentB, variant, seed, difficulty } = data;
     this.activeMatches.add(matchId);
 
-    logger.info({ matchId, agentA, agentB }, '매치 실행 시작');
+    logger.info({ matchId, agentA, agentB }, 'Match execution started');
 
     try {
-      // Agent A 실행
+      // Execute Agent A
       const scoreA = await this.runAgent(matchId, agentA, variant, seed, difficulty);
 
-      // Agent B 실행 (같은 미로, 같은 시드)
+      // Execute Agent B (same maze, same seed)
       const scoreB = await this.runAgent(matchId, agentB, variant, seed, difficulty);
 
       const winner = scoreA >= scoreB ? agentA : agentB;
@@ -104,25 +104,25 @@ export class InMemoryMatchScheduler {
         totalTicks: 0,
       };
 
-      logger.info({ matchId, scoreA, scoreB, winner }, '매치 완료');
+      logger.info({ matchId, scoreA, scoreB, winner }, 'Match completed');
 
-      // 콜백 호출
+      // Invoke callback
       if (this.onMatchComplete) {
         await this.onMatchComplete(result);
       }
     } catch (error) {
       logger.error(
         { matchId, error: error instanceof Error ? error.message : String(error) },
-        '매치 실행 실패',
+        'Match execution failed',
       );
     } finally {
       this.activeMatches.delete(matchId);
-      // 대기 중인 매치 처리
+      // Process pending matches
       void this.processNext();
     }
   }
 
-  /** 개별 에이전트 실행 및 게임 오버까지 대기 */
+  /** Execute individual agent and wait until game over */
   private runAgent(
     matchId: string,
     agent: string,
@@ -142,11 +142,11 @@ export class InMemoryMatchScheduler {
         agents: [agent],
       });
 
-      // 게임 오버 시 점수 반환을 위한 임시 콜백
+      // Temporary callback to return score on game over
       const originalOnGameOver = this.gameLoopManager.getOnGameOver();
 
       this.gameLoopManager.setOnGameOver((sid: string, state: GameState) => {
-        // 원래 콜백도 호출 (WebSocket 브로드캐스트)
+        // Also call original callback (WebSocket broadcast)
         originalOnGameOver?.(sid, state);
 
         if (sid === sessionId) {
@@ -159,7 +159,7 @@ export class InMemoryMatchScheduler {
     });
   }
 
-  /** 대기 큐에서 다음 매치 처리 */
+  /** Process next match from pending queue */
   private async processNext(): Promise<void> {
     if (this.pendingQueue.length > 0 && this.activeMatches.size < this.concurrency) {
       const next = this.pendingQueue.shift();
@@ -169,20 +169,20 @@ export class InMemoryMatchScheduler {
     }
   }
 
-  /** 대기 중인 작업 수 */
+  /** Number of pending jobs */
   getPendingCount(): number {
     return this.pendingQueue.length;
   }
 
-  /** 활성 작업 수 */
+  /** Number of active jobs */
   getActiveCount(): number {
     return this.activeMatches.size;
   }
 
-  /** 정리 */
+  /** Cleanup */
   shutdown(): void {
     this.pendingQueue = [];
     this.activeMatches.clear();
-    logger.info('InMemoryMatchScheduler 종료');
+    logger.info('InMemoryMatchScheduler shutdown');
   }
 }

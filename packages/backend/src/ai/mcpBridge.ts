@@ -256,11 +256,11 @@ export async function executeMcpTool(
       case 'getOpponentHistory':
         return await getOpponentHistory(input, arena);
       default:
-        throw new Error(`알 수 없는 MCP 도구: ${toolName}`);
+        throw new Error(`Unknown MCP tool: ${toolName}`);
     }
   } catch (error) {
-    // 에러를 로깅하고 기본값 반환
-    console.warn(`MCP 도구 실행 실패 (${toolName}):`, error);
+    // Log error and return default value
+    console.warn(`MCP tool execution failed (${toolName}):`, error);
     return getDefaultResult(toolName, input);
   }
 }
@@ -274,7 +274,7 @@ export async function executeMcpTool(
  */
 async function getAgentStats(input: unknown, arena: Contract): Promise<AgentStatsResult> {
   if (!isValidInput(input, ['agentAddress'])) {
-    throw new Error('유효하지 않은 입력: agentAddress 필수');
+    throw new Error('Invalid input: agentAddress required');
   }
 
   const { agentAddress } = input as { agentAddress: string };
@@ -289,7 +289,7 @@ async function getAgentStats(input: unknown, arena: Contract): Promise<AgentStat
     }>) | undefined;
 
     if (!agents) {
-      throw new Error('agents 메서드를 사용할 수 없습니다');
+      throw new Error('agents method unavailable');
     }
 
     const agent = await agents(agentAddress);
@@ -303,7 +303,7 @@ async function getAgentStats(input: unknown, arena: Contract): Promise<AgentStat
       active: Boolean(agent.active),
     };
   } catch (error) {
-    // 컨트랙트 메서드가 없거나 실패 시 기본값
+    // Default value if contract method unavailable or fails
     return {
       address: agentAddress,
       wins: 0,
@@ -320,7 +320,7 @@ async function getAgentStats(input: unknown, arena: Contract): Promise<AgentStat
  */
 async function getCurrentOdds(input: unknown, wagerPool: Contract): Promise<OddsResult> {
   if (!isValidInput(input, ['matchId'])) {
-    throw new Error('유효하지 않은 입력: matchId 필수');
+    throw new Error('Invalid input: matchId required');
   }
 
   const { matchId } = input as { matchId: number };
@@ -333,7 +333,7 @@ async function getCurrentOdds(input: unknown, wagerPool: Contract): Promise<Odds
     }>) | undefined;
 
     if (!pools) {
-      throw new Error('pools 메서드를 사용할 수 없습니다');
+      throw new Error('pools method unavailable');
     }
 
     const pool = await pools(matchId);
@@ -345,7 +345,7 @@ async function getCurrentOdds(input: unknown, wagerPool: Contract): Promise<Odds
     let ratioB = 1.0;
 
     if (total > 0n) {
-      // 배당률 = (총 풀 / 해당 사이드 배팅액) * 0.95 (5% 수수료 차감)
+      // Odds = (total pool / side bet amount) * 0.95 (5% fee deducted)
       ratioA = totalA > 0n ? Number(total) / Number(totalA) * 0.95 : 1.0;
       ratioB = totalB > 0n ? Number(total) / Number(totalB) * 0.95 : 1.0;
     }
@@ -373,7 +373,7 @@ async function getCurrentOdds(input: unknown, wagerPool: Contract): Promise<Odds
  */
 async function getBettingPool(input: unknown, wagerPool: Contract): Promise<BettingPoolResult> {
   if (!isValidInput(input, ['matchId'])) {
-    throw new Error('유효하지 않은 입력: matchId 필수');
+    throw new Error('Invalid input: matchId required');
   }
 
   const { matchId } = input as { matchId: number };
@@ -386,7 +386,7 @@ async function getBettingPool(input: unknown, wagerPool: Contract): Promise<Bett
     }>) | undefined;
 
     if (!pools) {
-      throw new Error('pools 메서드를 사용할 수 없습니다');
+      throw new Error('pools method unavailable');
     }
 
     const pool = await pools(matchId);
@@ -420,7 +420,7 @@ async function getTournamentBracket(
   arena: Contract,
 ): Promise<TournamentBracketResult> {
   if (!isValidInput(input, ['tournamentId'])) {
-    throw new Error('유효하지 않은 입력: tournamentId 필수');
+    throw new Error('Invalid input: tournamentId required');
   }
 
   const { tournamentId } = input as { tournamentId: number };
@@ -436,17 +436,17 @@ async function getTournamentBracket(
     const tournamentChampionFn = arena.tournamentChampion as ((tournamentId: number) => Promise<string>) | undefined;
 
     if (!tournaments || !tournamentCurrentRoundFn || !tournamentChampionFn) {
-      throw new Error('tournament 메서드를 사용할 수 없습니다');
+      throw new Error('tournament methods unavailable');
     }
 
     const tournament = await tournaments(tournamentId);
     const currentRound = await tournamentCurrentRoundFn(tournamentId);
     const champion = await tournamentChampionFn(tournamentId);
 
-    // participants는 배열이므로 그대로 변환
+    // participants is an array so convert directly
     const participants = tournament.participants || [];
 
-    // 상태 변환 (0: Upcoming, 1: Active, 2: Completed)
+    // Status conversion (0: Upcoming, 1: Active, 2: Completed)
     const statusMap = ['upcoming', 'active', 'completed'];
     const status = statusMap[Number(tournament.status || 0)] || 'upcoming';
 
@@ -506,14 +506,14 @@ async function getLeaderboard(input: unknown, _arena: Contract): Promise<Leaderb
  */
 async function getOpponentHistory(input: unknown, _arena: Contract): Promise<OpponentHistoryResult> {
   if (!isValidInput(input, ['agentAddress'])) {
-    throw new Error('유효하지 않은 입력: agentAddress 필수');
+    throw new Error('Invalid input: agentAddress required');
   }
 
   const { agentAddress } = input as { agentAddress: string };
 
   try {
-    // 실제 구현: MatchCompleted 이벤트 필터링
-    // 현재는 더미 데이터 반환
+    // Actual implementation: MatchCompleted event filtering
+    // Currently returns dummy data
     return {
       agentAddress,
       recentMatches: [],
@@ -584,6 +584,6 @@ function getDefaultResult(toolName: string, input: unknown): McpToolResult {
         recentMatches: [],
       };
     default:
-      throw new Error(`알 수 없는 도구: ${toolName}`);
+      throw new Error(`Unknown tool: ${toolName}`);
   }
 }

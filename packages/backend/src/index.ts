@@ -71,9 +71,9 @@ function main(): void {
       wagerPoolAddress: env.WAGER_POOL_ADDRESS,
       socketManager,
     });
-    logger.info('BettingOrchestrator 초기화 완료 (온체인 배팅 활성)');
+    logger.info('BettingOrchestrator initialized (on-chain betting enabled)');
   } else {
-    logger.info('BettingOrchestrator 미초기화 (ARENA_MANAGER_PRIVATE_KEY 또는 WAGER_POOL_ADDRESS 미설정)');
+    logger.info('BettingOrchestrator not initialized (ARENA_MANAGER_PRIVATE_KEY or WAGER_POOL_ADDRESS not set)');
   }
 
   // 챌린지 매치 오케스트레이터 초기화
@@ -125,14 +125,14 @@ function main(): void {
 
   // Graceful Shutdown
   const shutdown = () => {
-    logger.info('서버 종료 중...');
+    logger.info('Shutting down server...');
     demoRunner.stop();
     bettingOrchestrator?.shutdown();
     challengeOrchestrator.shutdown();
     indexerService.stop();
     socketManager.shutdown();
     httpServer.close(() => {
-      logger.info('서버 종료 완료');
+      logger.info('Server shutdown complete');
       process.exit(0);
     });
   };
@@ -140,18 +140,18 @@ function main(): void {
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 
-  // 서버 시작
+  // Start server
   httpServer.listen(env.PORT, () => {
-    logger.info(`Ghost Protocol 서버 시작: http://localhost:${env.PORT.toString()}`);
-    logger.info(`WebSocket 대기 중: ws://localhost:${env.PORT.toString()}`);
+    logger.info(`Ghost Protocol server started: http://localhost:${env.PORT.toString()}`);
+    logger.info(`WebSocket listening: ws://localhost:${env.PORT.toString()}`);
     logger.info(`API: http://localhost:${env.PORT.toString()}/api/v1`);
-    logger.info(`Envio Indexer 연결: ${env.ENVIO_GRAPHQL_URL}`);
-    logger.info(`에이전트 수: ${stateStore.agents.size.toString()}`);
+    logger.info(`Envio Indexer connected: ${env.ENVIO_GRAPHQL_URL}`);
+    logger.info(`Agent count: ${stateStore.agents.size.toString()}`);
 
-    // 서버 시작 후 데모 토너먼트 자동 실행
+    // Auto-run demo tournament after server start
     demoRunner.start();
 
-    // Indexer 폴링 시작
+    // Start indexer polling
     indexerService.start();
   });
 }
@@ -159,6 +159,6 @@ function main(): void {
 try {
   main();
 } catch (error: unknown) {
-  console.error('서버 시작 실패:', error);
+  console.error('Server start failed:', error);
   process.exit(1);
 }

@@ -93,21 +93,21 @@ export class IndexerService {
     const interval = intervalMs ?? this.pollInterval;
 
     if (this.intervalId !== null) {
-      this.logger.warn('IndexerService가 이미 실행 중입니다');
+      this.logger.warn('IndexerService already running');
       return;
     }
 
-    this.logger.info({ interval }, 'IndexerService 폴링 시작');
+    this.logger.info({ interval }, 'IndexerService polling started');
 
-    // 즉시 한 번 실행
+    // Execute immediately once
     this.poll().catch((error) => {
-      this.logger.error({ error }, '초기 폴링 실패');
+      this.logger.error({ error }, 'Initial polling failed');
     });
 
-    // 주기적 폴링 시작
+    // Start periodic polling
     this.intervalId = setInterval(() => {
       this.poll().catch((error) => {
-        this.logger.error({ error }, '폴링 중 오류 발생');
+        this.logger.error({ error }, 'Error during polling');
       });
     }, interval);
   }
@@ -117,13 +117,13 @@ export class IndexerService {
    */
   stop(): void {
     if (this.intervalId === null) {
-      this.logger.warn('IndexerService가 실행 중이 아닙니다');
+      this.logger.warn('IndexerService not running');
       return;
     }
 
     clearInterval(this.intervalId);
     this.intervalId = null;
-    this.logger.info('IndexerService 폴링 중지');
+    this.logger.info('IndexerService polling stopped');
   }
 
   /**
@@ -131,7 +131,7 @@ export class IndexerService {
    */
   private async poll(): Promise<void> {
     if (this.isPolling) {
-      this.logger.debug('이전 폴링이 아직 진행 중입니다');
+      this.logger.debug('Previous polling still in progress');
       return;
     }
 
@@ -248,7 +248,7 @@ export class IndexerService {
       const result = (await response.json()) as { data: BetQueryResult };
       return result.data.bets;
     } catch (error) {
-      this.logger.error({ error }, '베팅 조회 실패');
+      this.logger.error({ error }, 'Bet query failed');
       return [];
     }
   }
@@ -282,7 +282,7 @@ export class IndexerService {
       const result = (await response.json()) as { data: SettlementQueryResult };
       return result.data.settlements;
     } catch (error) {
-      this.logger.error({ error }, '정산 조회 실패');
+      this.logger.error({ error }, 'Settlement query failed');
       return [];
     }
   }
@@ -317,7 +317,7 @@ export class IndexerService {
       const result = (await response.json()) as { data: AgentQueryResult };
       return result.data.agents;
     } catch (error) {
-      this.logger.error({ error }, '에이전트 등록 조회 실패');
+      this.logger.error({ error }, 'Agent registration query failed');
       return [];
     }
   }
@@ -350,7 +350,7 @@ export class IndexerService {
       const result = (await response.json()) as { data: TournamentQueryResult };
       return result.data.tournaments;
     } catch (error) {
-      this.logger.error({ error }, '토너먼트 조회 실패');
+      this.logger.error({ error }, 'Tournament query failed');
       return [];
     }
   }
@@ -384,7 +384,7 @@ export class IndexerService {
       const result = (await response.json()) as { data: MatchResultQueryResult };
       return result.data.matchResults;
     } catch (error) {
-      this.logger.error({ error }, '매치 결과 조회 실패');
+      this.logger.error({ error }, 'Match result query failed');
       return [];
     }
   }

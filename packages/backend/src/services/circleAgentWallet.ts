@@ -76,7 +76,7 @@ export async function createAgentWallet(
 
     if (!response.ok) {
       const errorData = (await response.json().catch(() => ({}))) as { error?: string };
-      console.error(`Circle 에이전트 지갑 생성 실패: ${errorData.error ?? response.statusText}`);
+      console.error(`Circle agent wallet creation failed: ${errorData.error ?? response.statusText}`);
       return null;
     }
 
@@ -86,16 +86,16 @@ export async function createAgentWallet(
 
     const wallet = data.data?.wallets[0];
     if (!wallet) {
-      console.error('Circle 응답에 지갑 정보 없음');
+      console.error('No wallet info in Circle response');
       return null;
     }
 
-    // 2. Agent Faucet으로 초기 MON 지급
+    // 2. Fund initial MON via Agent Faucet
     try {
       await fundAgentWallet(wallet.address);
     } catch (faucetError) {
-      // Faucet 실패는 치명적이지 않음 (지갑은 생성됨)
-      console.warn(`Faucet 지급 실패 (${wallet.address}):`, faucetError);
+      // Faucet failure is not fatal (wallet is created)
+      console.warn(`Faucet funding failed (${wallet.address}):`, faucetError);
     }
 
     return {
@@ -104,7 +104,7 @@ export async function createAgentWallet(
     };
   } catch (error) {
     const err = error as Error;
-    console.error(`Circle 지갑 생성 중 오류: ${err.message}`);
+    console.error(`Error during Circle wallet creation: ${err.message}`);
     return null;
   }
 }
@@ -146,7 +146,7 @@ export async function getAgentWalletBalance(walletId: string): Promise<string | 
     return monBalance?.amount ?? '0';
   } catch (error) {
     const err = error as Error;
-    console.error(`잔액 조회 실패: ${err.message}`);
+    console.error(`Balance query failed: ${err.message}`);
     return null;
   }
 }
@@ -169,6 +169,6 @@ async function fundAgentWallet(address: string): Promise<void> {
   });
 
   if (!response.ok) {
-    throw new Error(`Agent Faucet 실패: ${response.statusText}`);
+    throw new Error(`Agent Faucet failed: ${response.statusText}`);
   }
 }

@@ -100,12 +100,12 @@ export class ArenaManager {
    * 평판 기반 시딩으로 8 또는 16명 토너먼트를 생성하고 자동 진행합니다.
    */
   async createAutonomousTournament(bracketSize: 8 | 16 = 8): Promise<string> {
-    logger.info({ bracketSize }, '자율 토너먼트 생성 시작');
+    logger.info({ bracketSize }, 'Starting autonomous tournament creation');
 
     // 1. 활성 에이전트 조회
     const activeAgents = await this.getActiveAgents();
     if (activeAgents.length < bracketSize) {
-      throw new Error(`활성 에이전트 부족: ${String(activeAgents.length)}명 (최소 ${String(bracketSize)}명 필요)`);
+      throw new Error(`Insufficient active agents: ${String(activeAgents.length)} (minimum ${String(bracketSize)} required)`);
     }
 
     // 2. 평판 기반 시딩 (상위 N명 선정)
@@ -119,7 +119,7 @@ export class ArenaManager {
     const bracket = this.generateBracket(tournamentId, participants, bracketSize);
     this.activeTournaments.set(tournamentId, bracket);
 
-    logger.info({ tournamentId, participants: participants.length }, '토너먼트 생성 완료');
+    logger.info({ tournamentId, participants: participants.length }, 'Tournament created');
 
     // 5. 첫 라운드 시작
     await this.startTournamentRound(tournamentId, 1);
@@ -180,7 +180,7 @@ export class ArenaManager {
 
     // tournamentId는 이벤트에서 추출하거나 컨트랙트에서 반환 (여기서는 간단히 가정)
     const tournamentId = 1; // 실제로는 이벤트 파싱 필요
-    logger.info({ tournamentId, txHash: receipt.hash }, '온체인 토너먼트 생성 완료');
+    logger.info({ tournamentId, txHash: receipt.hash }, 'On-chain tournament created');
     return tournamentId;
   }
 
@@ -231,11 +231,11 @@ export class ArenaManager {
 
     const pairings = tournament.bracket.get(round);
     if (!pairings) {
-      logger.warn({ tournamentId, round }, '라운드 페어링 없음');
+      logger.warn({ tournamentId, round }, 'No round pairings');
       return;
     }
 
-    logger.info({ tournamentId, round, matchCount: pairings.length }, '라운드 시작');
+    logger.info({ tournamentId, round, matchCount: pairings.length }, 'Round started');
     tournament.currentRound = round;
 
     // 토너먼트 진행 브로드캐스트
@@ -270,7 +270,7 @@ export class ArenaManager {
    * 매치 완료 처리
    */
   private async handleMatchComplete(result: MatchJobResult): Promise<void> {
-    logger.info({ matchId: result.matchId, winner: result.winner }, '매치 완료 처리');
+    logger.info({ matchId: result.matchId, winner: result.winner }, 'Processing match completion');
 
     // 1. 결과 검증 및 온체인 제출
     await this.resultVerifier.submitResult({
@@ -352,7 +352,7 @@ export class ArenaManager {
 
     tournament.bracket.set(nextRound, nextPairings);
 
-    logger.info({ tournamentId, nextRound, matchCount: nextPairings.length }, '다음 라운드 진행');
+    logger.info({ tournamentId, nextRound, matchCount: nextPairings.length }, 'Advancing to next round');
 
     // 온체인 토너먼트 진행 기록
     await this.advanceOnChainTournament(tournamentId, winners);
@@ -368,7 +368,7 @@ export class ArenaManager {
     const onChainId = Number(tournamentId.split(':')[2] ?? '0');
     const tx = (await this.ghostArenaContract.getFunction('advanceTournament')(onChainId, winners)) as { wait: () => Promise<unknown> };
     await tx.wait();
-    logger.info({ tournamentId, winnersCount: winners.length }, '온체인 토너먼트 진행 기록');
+    logger.info({ tournamentId, winnersCount: winners.length }, 'On-chain tournament advanced');
   }
 
   /**
@@ -378,7 +378,7 @@ export class ArenaManager {
     const tournament = this.activeTournaments.get(tournamentId);
     if (!tournament) return;
 
-    logger.info({ tournamentId, champion }, '토너먼트 종료');
+    logger.info({ tournamentId, champion }, 'Tournament completed');
 
     // 온체인 토너먼트 종료 및 상금 분배
     const onChainId = Number(tournamentId.split(':')[2] ?? '0');
@@ -397,7 +397,7 @@ export class ArenaManager {
     // 토너먼트 제거
     this.activeTournaments.delete(tournamentId);
 
-    logger.info({ tournamentId, champion }, '토너먼트 종료 및 상금 분배 완료');
+    logger.info({ tournamentId, champion }, 'Tournament finalized and prizes distributed');
   }
 
   /** 내부 시드 카운터 (결정론적 난수 생성용) */
@@ -444,6 +444,6 @@ export class ArenaManager {
    */
   shutdown(): void {
     this.activeTournaments.clear();
-    logger.info('ArenaManager 종료');
+    logger.info('ArenaManager shutdown');
   }
 }

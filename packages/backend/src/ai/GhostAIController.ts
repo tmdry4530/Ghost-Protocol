@@ -238,11 +238,11 @@ export class GhostAIController {
 
       const response = await this.llmProvider.requestStrategy(request);
 
-      // 응답 타겟을 캐시에 저장
+      // Cache response targets
       this.lastLLMTargets = new Map(response.ghostTargets);
     } catch (error) {
-      // LLM 실패 시 조용히 무시 (기본 AI로 폴백)
-      console.warn('LLM 전략 호출 실패:', error);
+      // Silently ignore LLM failure (fallback to default AI)
+      console.warn('LLM strategy call failed:', error);
     }
   }
 
