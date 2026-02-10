@@ -318,6 +318,16 @@ export class SocketManager {
   }
 
   /**
+   * 특정 룸에 이벤트 브로드캐스트
+   * @param roomId 룸 ID
+   * @param event 이벤트 이름
+   * @param data 이벤트 데이터
+   */
+  broadcastToRoom(roomId: string, event: string, data: Record<string, unknown>): void {
+    this.io.to(roomId).emit(event, data);
+  }
+
+  /**
    * 로비에 매치 업데이트 브로드캐스트
    * @param matchData 매치 정보
    */

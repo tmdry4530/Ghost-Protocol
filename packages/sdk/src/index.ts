@@ -18,6 +18,7 @@
 
 export { GhostAgent } from './GhostAgent.js';
 export { AgentClient } from './AgentClient.js';
+export { ChallengeClient } from './ChallengeClient.js';
 export { pathfind } from './helpers/pathfind.js';
 export { nearestPellet } from './helpers/nearestPellet.js';
 export { ghostDistance } from './helpers/ghostDistance.js';
@@ -49,4 +50,5 @@ export type {
 
 // SDK 전용 타입
 export type { MatchResult } from './GhostAgent.js';
+export type { ChallengeClientConfig } from './ChallengeClient.js';
 export type { LLMAgentConfig } from './agents/LLMAgent.js';

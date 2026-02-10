@@ -413,13 +413,15 @@ export class ChallengeMatchOrchestrator {
       match.gameDurationTimer = null;
     }
 
-    // Broadcast result
-    this.socketManager.broadcastToLobby(WS_EVENTS.MATCH_RESULT, {
+    // Broadcast result to lobby AND match room
+    const resultPayload = {
       matchId: match.id,
       winner,
       score: state.score,
       lives: state.lives,
-    } as Record<string, unknown>);
+    } as Record<string, unknown>;
+    this.socketManager.broadcastToLobby(WS_EVENTS.MATCH_RESULT, resultPayload);
+    this.socketManager.broadcastToRoom(match.sessionId, WS_EVENTS.MATCH_RESULT, resultPayload);
 
     this.socketManager.broadcastFeedItem({
       id: `feed-${Date.now().toString(36)}`,
@@ -467,13 +469,15 @@ export class ChallengeMatchOrchestrator {
     match.winner = winner;
     match.status = 'completed';
 
-    this.socketManager.broadcastToLobby(WS_EVENTS.MATCH_RESULT, {
+    const timeoutPayload = {
       matchId: match.id,
       winner,
       score: match.score,
       lives: state?.lives ?? 0,
       reason: 'timeout',
-    } as Record<string, unknown>);
+    } as Record<string, unknown>;
+    this.socketManager.broadcastToLobby(WS_EVENTS.MATCH_RESULT, timeoutPayload);
+    this.socketManager.broadcastToRoom(match.sessionId, WS_EVENTS.MATCH_RESULT, timeoutPayload);
 
     // 배팅 정산
     void this.settleMatchBets(match, winner);
@@ -526,13 +530,15 @@ export class ChallengeMatchOrchestrator {
 
     match.score = state?.score ?? 0;
 
-    this.socketManager.broadcastToLobby(WS_EVENTS.MATCH_RESULT, {
+    const disconnectPayload = {
       matchId: match.id,
       winner: 'ghost',
       score: match.score,
       lives: 0,
       reason: 'disconnect',
-    } as Record<string, unknown>);
+    } as Record<string, unknown>;
+    this.socketManager.broadcastToLobby(WS_EVENTS.MATCH_RESULT, disconnectPayload);
+    this.socketManager.broadcastToRoom(match.sessionId, WS_EVENTS.MATCH_RESULT, disconnectPayload);
 
     // 배팅 정산 (연결 해제 → 고스트 승리)
     void this.settleMatchBets(match, 'ghost');

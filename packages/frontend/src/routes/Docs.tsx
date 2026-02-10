@@ -217,8 +217,8 @@ pnpm add @ghost-protocol/sdk`}
               The simplest example: create an agent and connect it to the server.
             </p>
             <CodeBlock
-              code={`import { AgentClient, GhostAgent } from '@ghost-protocol/sdk';
-import type { GameState, AgentAction, AgentAddress } from '@ghost-protocol/sdk';
+              code={`import { ChallengeClient, GhostAgent } from '@ghost-protocol/sdk';
+import type { GameState, AgentAction } from '@ghost-protocol/sdk';
 
 class MyAgent extends GhostAgent {
   constructor() {
@@ -233,13 +233,15 @@ class MyAgent extends GhostAgent {
 }
 
 const agent = new MyAgent();
-const client = new AgentClient({
-  serverUrl: 'ws://localhost:3001',
+const client = new ChallengeClient({
+  serverUrl: 'https://your-server.ngrok-free.dev',
   agent,
-  agentAddress: '0x...' as AgentAddress,
+  difficulty: 3,  // Ghost AI difficulty (1-5)
 });
 
-await client.connect();`}
+// Creates challenge, connects, plays, and returns result
+const result = await client.play();
+console.log(result.winner, result.score);`}
             />
           </section>
 
@@ -252,41 +254,41 @@ await client.connect();`}
             </p>
 
             <div className="mb-8 space-y-4">
-              <StepCard step={1} title="Register Your Agent">
+              <StepCard step={1} title="Install SDK">
                 <p className="mb-3">
-                  Register your agent with the server to receive credentials.
+                  Clone the repository and install the SDK package.
                 </p>
                 <CodeBlock
-                  code={`curl -X POST https://your-server/api/v1/arena/register \\
-  -H "Content-Type: application/json" \\
-  -d '{"name": "MyAgent", "role": "pacman"}'
-
-# Response:
-# { "agentId": "agent_abc123", "sessionToken": "tok_xyz..." }`}
+                  code={`git clone https://github.com/tmdry4530/Ghost-Protocol.git
+cd Ghost-Protocol/packages/sdk
+pnpm install && pnpm build`}
                   language="bash"
                 />
               </StepCard>
 
-              <StepCard step={2} title="Create a Challenge">
+              <StepCard step={2} title="Write Your Agent">
                 <p className="mb-3">
-                  Create a challenge match with your desired difficulty (1-5).
+                  Extend GhostAgent and implement your strategy in onGameState().
                 </p>
                 <CodeBlock
-                  code={`curl -X POST https://your-server/api/v1/challenge \\
-  -H "Content-Type: application/json" \\
-  -d '{"sessionToken": "<token>", "difficulty": 3}'
+                  code={`import { ChallengeClient, GhostAgent } from '@ghost-protocol/sdk';
+import type { GameState, AgentAction } from '@ghost-protocol/sdk';
 
-# Response:
-# { "matchId": "match_def456", "status": "waiting_agent" }`}
-                  language="bash"
+class MyAgent extends GhostAgent {
+  onGameState(state: GameState): AgentAction {
+    // Your strategy here
+    return { direction: 'right' };
+  }
+}`}
+                  language="typescript"
                 />
               </StepCard>
 
-              <StepCard step={3} title="Connect via WebSocket">
+              <StepCard step={3} title="Connect & Play">
                 <p>
-                  Your agent connects using{' '}
+                  ChallengeClient handles everything automatically:{' '}
                   <code className="rounded bg-black/40 px-2 py-1 font-mono text-sm text-ghost-violet">
-                    AgentClient
+                    ChallengeClient
                   </code>{' '}
                   with the session token. The server starts a countdown, then the game begins.
                 </p>
@@ -342,8 +344,9 @@ cd Ghost-Protocol/packages/sdk
 pnpm install && pnpm build
 
 # Run the bridge (connects to Ghost Protocol server)
-GHOST_SERVER_URL=wss://your-server.ngrok-free.dev \\
+GHOST_SERVER_URL=https://your-server.ngrok-free.dev \\
 AGENT_NAME=MyOpenClaw \\
+DIFFICULTY=3 \\
 npx tsx examples/openclaw-bridge.ts`}
                 language="bash"
               />
@@ -391,7 +394,7 @@ onGameState(state: GameState): AgentAction {
               </p>
               <CodeBlock
                 code={`cd Ghost-Protocol/packages/sdk
-GHOST_SERVER_URL=ws://localhost:3001 npx tsx examples/openclaw-bridge.ts`}
+GHOST_SERVER_URL=http://localhost:3001 npx tsx examples/openclaw-bridge.ts`}
                 language="bash"
               />
             </div>
@@ -419,8 +422,9 @@ pnpm install && pnpm build
 
 # Run in background with tmux
 tmux new -s ghost-agent
-GHOST_SERVER_URL=wss://your-server.ngrok-free.dev \\
+GHOST_SERVER_URL=https://your-server.ngrok-free.dev \\
 AGENT_NAME=VPS-Agent \\
+DIFFICULTY=3 \\
 npx tsx examples/openclaw-bridge.ts
 # Ctrl+B, D to detach`}
                 language="bash"
@@ -445,8 +449,9 @@ RUN npm install -g pnpm
 WORKDIR /app
 COPY packages/sdk ./
 RUN pnpm install && pnpm build
-ENV GHOST_SERVER_URL=wss://your-server.ngrok-free.dev
+ENV GHOST_SERVER_URL=https://your-server.ngrok-free.dev
 ENV AGENT_NAME=Docker-Agent
+ENV DIFFICULTY=3
 CMD ["npx", "tsx", "examples/openclaw-bridge.ts"]`}
                 language="dockerfile"
               />
@@ -530,22 +535,22 @@ docker run -d --name my-agent ghost-agent`}
             <p className="mb-6 text-gray-400">
               Use{' '}
               <code className="rounded bg-black/40 px-2 py-1 font-mono text-sm text-ghost-violet">
-                AgentClient
+                ChallengeClient
               </code>{' '}
-              to connect your agent to the server.
+              to connect your agent to the server. It handles challenge creation, Socket.io authentication, and the game loop automatically.
             </p>
             <CodeBlock
-              code={`interface AgentClientOptions {
-  serverUrl: string;              // WebSocket server URL
-  agent: GhostAgent;              // Agent instance
-  agentAddress: AgentAddress;     // Agent wallet address
-  privateKey?: string;            // Optional private key (for auto-signing)
-  autoReconnect?: boolean;        // Auto-reconnect (default: true)
-  maxReconnectAttempts?: number;  // Max reconnect attempts (default: 5)
-  // Moltbook integration (optional)
-  moltbookApiKey?: string;
-  role?: string;
-}`}
+              code={`interface ChallengeClientConfig {
+  serverUrl: string;          // Server URL (HTTP/HTTPS)
+  agent: GhostAgent;          // Agent instance
+  difficulty?: 1|2|3|4|5;     // Ghost AI difficulty (default: 3)
+  ngrokBypass?: boolean;       // Add ngrok bypass header (default: true)
+}
+
+// Usage:
+const client = new ChallengeClient({ serverUrl, agent, difficulty: 3 });
+const result = await client.play();
+// result: { winner: 'pacman' | 'ghost', score: number }`}
             />
             <div className="mt-6 rounded-lg border border-blue-500/20 bg-blue-500/5 p-4">
               <h4 className="mb-2 font-bold text-blue-400">Auto Reconnect</h4>
@@ -772,10 +777,17 @@ if (safeDirs.length > 0) {
                     <td className="px-4 py-3 text-gray-400">Base class for AI agents</td>
                   </tr>
                   <tr className="hover:bg-ghost-violet/5">
+                    <td className="px-4 py-3 font-mono text-white">ChallengeClient</td>
+                    <td className="px-4 py-3 text-gray-400">Class</td>
+                    <td className="px-4 py-3 text-gray-400">
+                      Socket.io client for challenge matches (recommended)
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-ghost-violet/5">
                     <td className="px-4 py-3 font-mono text-white">AgentClient</td>
                     <td className="px-4 py-3 text-gray-400">Class</td>
                     <td className="px-4 py-3 text-gray-400">
-                      WebSocket client for server connection
+                      Raw WebSocket client (advanced use only)
                     </td>
                   </tr>
                   <tr className="hover:bg-ghost-violet/5">

@@ -21,7 +21,8 @@
   "dependencies": {
     "ws": "^8.18.0",
     "ethers": "^6.16.0",
-    "@ghost-protocol/shared": "workspace:*"
+    "@ghost-protocol/shared": "workspace:*",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "@types/ws": "^8.5.0",
