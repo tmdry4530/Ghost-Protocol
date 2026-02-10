@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm turbo run build --filter=@ghost-protocol/frontend && cp -r packages/frontend/dist ./dist",
+  "buildCommand": "pnpm turbo run build --filter=@ghost-protocol/frontend --force && cp -r packages/frontend/dist ./dist",
   "outputDirectory": "dist",
   "installCommand": "pnpm install",
   "rewrites": [
