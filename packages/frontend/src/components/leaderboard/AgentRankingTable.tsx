@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 /** Agent address type */
 type AgentAddress = string & { readonly __brand: 'AgentAddress' };
@@ -13,6 +13,16 @@ interface AgentInfo {
   readonly reputation: number;
   readonly active: boolean;
   readonly elo: number;
+}
+
+/** API 리더보드 응답 타입 */
+interface LeaderboardEntry {
+  readonly address: string;
+  readonly name: string;
+  readonly elo: number;
+  readonly wins: number;
+  readonly losses: number;
+  readonly reputation: number;
 }
 
 /** Sort key type */
@@ -56,10 +66,44 @@ function getWinRateColor(winRate: number): string {
 
 /** Agent ranking table component */
 export function AgentRankingTable() {
-  const [agents] = useState<AgentInfo[]>([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
+  const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>('reputation');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [visibleCount, setVisibleCount] = useState(20);
+
+  // API에서 리더보드 데이터 로드
+  useEffect(() => {
+    const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3001/api/v1';
+
+    void (async () => {
+      try {
+        const res = await fetch(`${API_URL}/leaderboard`);
+        if (res.ok) {
+          const data = await res.json() as { leaderboard: LeaderboardEntry[] };
+
+          // API 응답을 AgentInfo 형식으로 변환
+          setAgents(
+            data.leaderboard.map((entry) => ({
+              address: entry.address as AgentAddress,
+              owner: '', // API에서 제공하지 않으면 빈 문자열
+              name: entry.name,
+              wins: entry.wins,
+              losses: entry.losses,
+              reputation: entry.reputation,
+              active: true, // 리더보드에 표시된 에이전트는 활성 상태로 간주
+              elo: entry.elo,
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn('리더보드 데이터 로드 실패:', err);
+        // 실패 시 빈 상태 유지
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   /** Sort handler */
   const handleSort = (key: SortKey) => {
@@ -101,6 +145,19 @@ export function AgentRankingTable() {
 
   const visibleAgents = sortedAgents.slice(0, visibleCount);
 
+  // 로딩 중 표시
+  if (loading) {
+    return (
+      <div className="flex min-h-[300px] flex-col items-center justify-center rounded-lg border border-arena-border bg-arena-card p-8 text-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-ghost-violet/20 border-t-ghost-violet" />
+          <p className="text-sm text-gray-400">Loading leaderboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 데이터 없음 표시
   if (agents.length === 0) {
     return (
       <div className="flex min-h-[300px] flex-col items-center justify-center rounded-lg border border-arena-border bg-arena-card p-8 text-center">

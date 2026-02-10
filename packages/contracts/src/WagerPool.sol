@@ -62,6 +62,10 @@ contract WagerPool is IWagerPool, ReentrancyGuard, Pausable {
         uint256 totalA; // AgentA 사이드 총 배팅액
         uint256 totalB; // AgentB 사이드 총 배팅액
         Side winningSide; // 정산 시 결정되는 승리 사이드
+        uint256 pacmanSide; // 팩맨 역할 사이드 총 배팅액 (역할 기반)
+        uint256 ghostSide; // 고스트 역할 사이드 총 배팅액 (역할 기반)
+        Side pacmanSideEnum; // 팩맨 역할이 AgentA인지 AgentB인지
+        bool roleAssigned; // 역할이 할당되었는지 여부
     }
 
     /// @notice 개별 배팅 정보
@@ -69,6 +73,7 @@ contract WagerPool is IWagerPool, ReentrancyGuard, Pausable {
         Side side; // 배팅 방향
         uint256 amount; // 배팅 금액 (누적 가능)
         bool claimed; // 수령 여부
+        bool isRoleBased; // 역할 기반 베팅 여부
     }
 
     // ──────────────────────────────────────────────
@@ -151,6 +156,27 @@ contract WagerPool is IWagerPool, ReentrancyGuard, Pausable {
     }
 
     // ──────────────────────────────────────────────
+    //  핵심 함수: 풀 오픈 (역할 매핑)
+    // ──────────────────────────────────────────────
+
+    /// @notice 배팅 풀 오픈 — 매치별 역할 매핑을 설정한다
+    /// @dev 아레나 매니저가 매치 시작 전에 팩맨 역할이 AgentA인지 AgentB인지 지정한다
+    /// @param matchId 매치 ID
+    /// @param _pacmanSide 팩맨 역할이 속한 사이드 (AgentA 또는 AgentB)
+    function openPool(uint256 matchId, Side _pacmanSide) external onlyArenaManager {
+        Pool storage pool = pools[matchId];
+
+        // 풀이 Open 상태이고 아직 역할이 설정되지 않았는지 확인
+        if (pool.status != PoolStatus.Open) revert InvalidPoolStatus();
+        if (pool.roleAssigned) revert InvalidPoolStatus();
+
+        pool.pacmanSideEnum = _pacmanSide;
+        pool.roleAssigned = true;
+
+        emit PoolOpened(matchId, _pacmanSide);
+    }
+
+    // ──────────────────────────────────────────────
     //  핵심 함수: 배팅
     // ──────────────────────────────────────────────
 
@@ -181,6 +207,7 @@ contract WagerPool is IWagerPool, ReentrancyGuard, Pausable {
             // 새 배팅 생성
             userBet.side = side;
             userBet.amount = msg.value;
+            userBet.isRoleBased = false;
         }
 
         // 사이드별 총액 업데이트
@@ -191,6 +218,69 @@ contract WagerPool is IWagerPool, ReentrancyGuard, Pausable {
         }
 
         emit BetPlaced(matchId, msg.sender, side, msg.value);
+    }
+
+    /// @notice 역할 기반 배팅 — 팩맨 또는 고스트 역할에 베팅
+    /// @dev 에이전트가 아닌 역할(PACMAN/GHOST)에 베팅. 풀이 Open 상태이고 역할이 할당되어 있어야 함.
+    /// @param matchId 매치 ID
+    /// @param role 베팅 대상 역할 (0 = PACMAN, 1 = GHOST)
+    function placeBetByRole(uint256 matchId, uint8 role) external payable nonReentrant whenNotPaused {
+        Pool storage pool = pools[matchId];
+
+        // 풀이 Open 상태인지 확인
+        if (pool.status != PoolStatus.Open) revert BettingWindowClosed();
+
+        // 역할이 할당되어 있는지 확인 — openPool 호출 필수
+        if (!pool.roleAssigned) revert InvalidPoolStatus();
+
+        // 배팅 금액 범위 검증
+        if (msg.value < MIN_BET || msg.value > MAX_BET) revert InvalidBetAmount();
+
+        // 역할 유효성 검증 (0 = PACMAN, 1 = GHOST)
+        if (role > 1) revert InvalidBetAmount();
+
+        Bet storage userBet = bets[matchId][msg.sender];
+
+        // 역할 → 사이드 동적 매핑: pacmanSideEnum 기준으로 결정
+        Side betSide;
+        if (role == 0) {
+            // PACMAN 배팅 → pool.pacmanSideEnum에 따라 사이드 결정
+            betSide = pool.pacmanSideEnum;
+        } else {
+            // GHOST 배팅 → 팩맨의 반대 사이드
+            betSide = (pool.pacmanSideEnum == Side.AgentA) ? Side.AgentB : Side.AgentA;
+        }
+
+        if (userBet.amount > 0) {
+            // 기존 배팅이 있으면 같은 사이드에만 추가 가능
+            if (userBet.side != betSide) revert CannotSwitchSide();
+
+            // 누적 금액이 MAX_BET를 초과하지 않는지 검증
+            if (userBet.amount + msg.value > MAX_BET) revert InvalidBetAmount();
+
+            userBet.amount += msg.value;
+        } else {
+            // 새 배팅 생성
+            userBet.side = betSide;
+            userBet.amount = msg.value;
+            userBet.isRoleBased = true;
+        }
+
+        // 역할별 풀 업데이트
+        if (role == 0) {
+            pool.pacmanSide += msg.value;
+        } else {
+            pool.ghostSide += msg.value;
+        }
+
+        // 사이드별 총액 업데이트
+        if (betSide == Side.AgentA) {
+            pool.totalA += msg.value;
+        } else {
+            pool.totalB += msg.value;
+        }
+
+        emit BetPlaced(matchId, msg.sender, betSide, msg.value);
     }
 
     // ──────────────────────────────────────────────

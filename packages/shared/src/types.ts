@@ -17,6 +17,9 @@ export type SessionId = string & { readonly __brand: 'SessionId' };
 /** 에이전트 주소 식별자 */
 export type AgentAddress = string & { readonly __brand: 'AgentAddress' };
 
+/** Moltbook 에이전트 고유 식별자 */
+export type MoltbookId = string & { readonly __brand: 'MoltbookId' };
+
 // ===== 기본 열거형 타입 =====
 
 /** 이동 방향 */
@@ -40,8 +43,14 @@ export type SurvivalStatus = 'waiting' | 'betting' | 'active' | 'completed';
 /** 난이도 등급 (1~5) */
 export type DifficultyTier = 1 | 2 | 3 | 4 | 5;
 
+/** 에이전트 역할 */
+export type AgentRole = 'pacman' | 'ghost';
+
+/** 지갑 연결 소스 */
+export type WalletSource = 'wagmi' | 'circle';
+
 /** 배팅 방향 */
-export type BetSide = 'agentA' | 'agentB';
+export type BetSide = 'agentA' | 'agentB' | 'pacman' | 'ghost';
 
 /** 미로 타일 종류 */
 export type MazeTile = 'wall' | 'path' | 'pellet' | 'powerPellet' | 'ghostHouse' | 'tunnel';
@@ -104,7 +113,7 @@ export interface GameState {
   readonly powerActive: boolean;
   readonly powerTimeRemaining: number;
   readonly fruitAvailable: FruitInfo | null;
-  readonly dying: boolean;
+  readonly dying?: boolean;
 }
 
 /** 에이전트 행동 (매 틱마다 반환) */
@@ -130,6 +139,13 @@ export interface AgentInfo {
   readonly totalScore: number;
   readonly reputation: number;
   readonly active: boolean;
+  // v2 신규 필드
+  readonly moltbookId?: MoltbookId;
+  readonly moltbookKarma?: number;
+  readonly moltbookAvatar?: string;
+  readonly role: AgentRole;
+  readonly isExternal: boolean;
+  readonly ownerXHandle?: string;
 }
 
 /** 매치 정보 */
@@ -293,4 +309,61 @@ export interface TierConfig {
   readonly coordinationEnabled: boolean;
   readonly patternRecognition: boolean;
   readonly llmEnabled: boolean;
+}
+
+// ===== v2 신규 타입 =====
+
+/** Moltbook 프로필 (프론트엔드 표시용) */
+export interface MoltbookProfile {
+  readonly id: MoltbookId;
+  readonly name: string;
+  readonly description: string;
+  readonly karma: number;
+  readonly avatar: string | null;
+  readonly followerCount: number;
+  readonly ownerXHandle: string;
+  readonly ownerXAvatar: string;
+}
+
+/** 통합 지갑 상태 */
+export interface UnifiedWalletState {
+  readonly address: string | null;
+  readonly isConnected: boolean;
+  readonly source: WalletSource | null;
+  readonly balance: string | null;
+}
+
+/** 에이전트 등록 요청 */
+export interface AgentRegistrationRequest {
+  readonly role: AgentRole;
+  readonly agentCode?: string;
+  readonly builtInAgent?: string;
+  readonly walletAddress?: string;
+  readonly tournamentId?: TournamentId;
+}
+
+/** 에이전트 등록 응답 */
+export interface AgentRegistrationResponse {
+  readonly agentId: string;
+  readonly sessionToken: string;
+  readonly walletAddress: string;
+  readonly moltbookProfile: MoltbookProfile;
+  readonly role: AgentRole;
+}
+
+/** 인덱서 베팅 이벤트 */
+export interface IndexerBetEvent {
+  readonly matchId: MatchId;
+  readonly bettor: string;
+  readonly agent: AgentAddress;
+  readonly amount: string;
+  readonly side: BetSide;
+  readonly timestamp: number;
+}
+
+/** 인덱서 정산 이벤트 */
+export interface IndexerSettlementEvent {
+  readonly matchId: MatchId;
+  readonly bettor: string;
+  readonly payout: string;
 }

@@ -174,6 +174,26 @@ export const TournamentAdvanceSchema = z.object({
   ),
 });
 
+// ===== v2 에이전트 등록 스키마 =====
+
+/** 에이전트 역할 스키마 */
+export const AgentRoleSchema = z.enum(['pacman', 'ghost']);
+
+/** 에이전트 등록 요청 스키마 */
+export const AgentRegistrationSchema = z.object({
+  role: AgentRoleSchema,
+  agentCode: z.string().max(50000).optional(),
+  builtInAgent: z.string().optional(),
+  walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+  tournamentId: z.string().optional(),
+});
+
+/** Moltbook identity 헤더 스키마 */
+export const MoltbookIdentityHeaderSchema = z.string().min(1);
+
+/** 베팅 사이드 스키마 확장 */
+export const BetSideExtendedSchema = z.enum(['agentA', 'agentB', 'pacman', 'ghost']);
+
 // ===== 타입 추론 (zod 스키마 → TypeScript 타입) =====
 // 주의: types.ts에 이미 동일한 이름의 타입이 정의되어 있으므로 여기서는 export하지 않음
 // 필요한 경우 z.infer<typeof XxxSchema>로 직접 추론하여 사용

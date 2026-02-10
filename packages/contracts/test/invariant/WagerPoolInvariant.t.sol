@@ -51,7 +51,7 @@ contract WagerPoolInvariantTest is StdInvariant, Test {
     /// @dev 모든 상태에서 사이드별 합계가 getTotalPool 반환값과 일치해야 함
     function invariant_poolBalance() public view {
         for (uint256 matchId = 0; matchId < handler.NUM_MATCHES(); matchId++) {
-            (IWagerPool.PoolStatus status, uint256 totalA, uint256 totalB,) = wagerPool.pools(matchId);
+            (IWagerPool.PoolStatus status, uint256 totalA, uint256 totalB,,,,,) = wagerPool.pools(matchId);
 
             // Open 상태가 아니면 (최소 한 번이라도 배팅이 있었으면) 검증
             if (status != IWagerPool.PoolStatus.Open || totalA > 0 || totalB > 0) {
@@ -104,7 +104,7 @@ contract WagerPoolInvariantTest is StdInvariant, Test {
     /// @dev voidMatch 후 모든 배팅자가 원금을 정확히 환불받을 수 있어야 함
     function invariant_refundCompleteness() public view {
         for (uint256 matchId = 0; matchId < handler.NUM_MATCHES(); matchId++) {
-            (IWagerPool.PoolStatus status, uint256 totalA, uint256 totalB,) = wagerPool.pools(matchId);
+            (IWagerPool.PoolStatus status, uint256 totalA, uint256 totalB,,,,,) = wagerPool.pools(matchId);
 
             if (status == IWagerPool.PoolStatus.Refunded) {
                 // Refunded 상태에서는 미청구 금액 = totalA + totalB - 이미 환불된 금액
@@ -140,7 +140,7 @@ contract WagerPoolInvariantTest is StdInvariant, Test {
     function invariant_stateTransition() public view {
         // 핸들러가 추적한 최대 상태를 확인
         for (uint256 matchId = 0; matchId < handler.NUM_MATCHES(); matchId++) {
-            (IWagerPool.PoolStatus currentStatus,,,) = wagerPool.pools(matchId);
+            (IWagerPool.PoolStatus currentStatus,,,,,,,) = wagerPool.pools(matchId);
             IWagerPool.PoolStatus maxSeenStatus = handler.ghost_maxStatusPerMatch(matchId);
 
             // 현재 상태는 지금까지 본 최대 상태보다 작거나 같아야 함
@@ -255,7 +255,7 @@ contract WagerPoolHandler is Test {
             amount = bound(amountSeed, wagerPool.MIN_BET(), maxAdditional);
         }
 
-        (IWagerPool.PoolStatus status,,,) = wagerPool.pools(matchId);
+        (IWagerPool.PoolStatus status,,,,,,,) = wagerPool.pools(matchId);
 
         // Open 상태가 아니면 배팅 불가
         if (status != IWagerPool.PoolStatus.Open) return;
@@ -329,7 +329,7 @@ contract WagerPoolHandler is Test {
         uint256 matchId = bound(matchIdSeed, 0, NUM_MATCHES - 1);
         address bettor = bettors[bound(bettorSeed, 0, NUM_BETTORS - 1)];
 
-        (IWagerPool.PoolStatus status,,,) = wagerPool.pools(matchId);
+        (IWagerPool.PoolStatus status,,,,,,,) = wagerPool.pools(matchId);
 
         // Settled 상태가 아니면 청구 불가
         if (status != IWagerPool.PoolStatus.Settled) return;
@@ -355,7 +355,7 @@ contract WagerPoolHandler is Test {
         uint256 matchId = bound(matchIdSeed, 0, NUM_MATCHES - 1);
         address bettor = bettors[bound(bettorSeed, 0, NUM_BETTORS - 1)];
 
-        (IWagerPool.PoolStatus status,,,) = wagerPool.pools(matchId);
+        (IWagerPool.PoolStatus status,,,,,,,) = wagerPool.pools(matchId);
 
         // Refunded 상태가 아니면 환불 불가
         if (status != IWagerPool.PoolStatus.Refunded) return;

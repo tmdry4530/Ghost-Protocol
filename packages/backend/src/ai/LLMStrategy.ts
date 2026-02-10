@@ -10,6 +10,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import type { Contract, Provider } from 'ethers';
 import type { Direction, GhostId, Position } from '@ghost-protocol/shared';
 import { MAZE_WIDTH, MAZE_HEIGHT } from '@ghost-protocol/shared';
 import type {
@@ -17,6 +18,8 @@ import type {
   LLMStrategyRequest,
   LLMStrategyResponse,
 } from './DifficultyManager.js';
+import { mcpTools, executeMcpTool } from './mcpBridge.js';
+import type { McpTool } from './mcpBridge.js';
 
 // ===== 설정 인터페이스 =====
 
@@ -34,6 +37,14 @@ interface LLMStrategyConfig {
   readonly cacheTTLMs?: number;
   /** 과거 분석 활성화 여부 — Tier 5 전용 (기본값: false) */
   readonly enableHistoricalAnalysis?: boolean;
+  /** 온체인 MCP 도구 활성화 여부 (기본값: false) */
+  readonly enableMcpTools?: boolean;
+  /** ethers Provider (MCP 도구에 필요) */
+  readonly provider?: Provider;
+  /** GhostArena 컨트랙트 인스턴스 */
+  readonly arenaContract?: Contract;
+  /** WagerPool 컨트랙트 인스턴스 */
+  readonly wagerPoolContract?: Contract;
 }
 
 // ===== 유효한 고스트 ID 목록 =====
@@ -527,6 +538,14 @@ class ClaudeLLMStrategy implements LLMStrategyProvider {
   private readonly cache: LLMResponseCache;
   /** 패턴 분석기 (Tier 5 전용, null이면 비활성) */
   private readonly patternAnalyzer: PatternAnalyzer | null;
+  /** MCP 도구 활성화 여부 */
+  private readonly enableMcpTools: boolean;
+  /** ethers Provider */
+  private readonly provider: Provider | null;
+  /** GhostArena 컨트랙트 */
+  private readonly arenaContract: Contract | null;
+  /** WagerPool 컨트랙트 */
+  private readonly wagerPoolContract: Contract | null;
   /** 마지막으로 성공한 캐시된 응답 (폴백용) */
   private lastSuccessfulResponse: LLMStrategyResponse | null = null;
 
@@ -542,6 +561,10 @@ class ClaudeLLMStrategy implements LLMStrategyProvider {
     this.cache = new LLMResponseCache(config.cacheTTLMs ?? 2000);
     this.patternAnalyzer =
       config.enableHistoricalAnalysis === true ? new PatternAnalyzer() : null;
+    this.enableMcpTools = config.enableMcpTools === true;
+    this.provider = config.provider ?? null;
+    this.arenaContract = config.arenaContract ?? null;
+    this.wagerPoolContract = config.wagerPoolContract ?? null;
   }
 
   /**
@@ -577,7 +600,15 @@ class ClaudeLLMStrategy implements LLMStrategyProvider {
     }
 
     // 3단계: 프롬프트 생성
-    const userPrompt = this.buildPrompt(request);
+    let userPrompt = this.buildPrompt(request);
+
+    // 3-1단계: Tier 5 온체인 컨텍스트 주입 (MCP Bridge)
+    if (this.patternAnalyzer !== null && this.enableMcpTools) {
+      const onchainContext = await this.fetchOnchainContext();
+      if (onchainContext.length > 0) {
+        userPrompt = `${userPrompt}\n\n=== 온체인 컨텍스트 (MCP Bridge) ===\n${onchainContext}\n\n위 온체인 데이터를 전략에 반영하세요. 상대 승률이 높으면 공격적으로,\n내가 언더독이면 보수적으로 플레이하여 관중의 서사에 부응하세요.`;
+      }
+    }
 
     // 4단계: API 호출
     try {
@@ -638,6 +669,83 @@ class ClaudeLLMStrategy implements LLMStrategyProvider {
     }
 
     return buildTier4Prompt(request);
+  }
+
+  /**
+   * 온체인 컨텍스트를 MCP Bridge를 통해 조회
+   *
+   * Claude API에 MCP 도구를 제공하여 어떤 온체인 데이터를 조회할지 결정하게 한 후,
+   * tool_use 응답 블록에 대해 executeMcpTool()을 호출하여 결과를 수집합니다.
+   * 실패 시 빈 문자열을 반환하여 graceful degradation을 보장합니다.
+   *
+   * @returns 온체인 컨텍스트 문자열 (실패 시 빈 문자열)
+   */
+  private async fetchOnchainContext(): Promise<string> {
+    // 컨트랙트 인스턴스가 없으면 조회 불가
+    if (this.provider === null || this.arenaContract === null || this.wagerPoolContract === null) {
+      return '';
+    }
+
+    try {
+      // McpTool → Anthropic Tool 형식으로 변환
+      const tools: Anthropic.Tool[] = mcpTools.map((tool: McpTool) => ({
+        name: tool.name,
+        description: tool.description,
+        input_schema: {
+          type: 'object' as const,
+          properties: tool.input_schema.properties as Record<string, unknown> | undefined,
+          required: tool.input_schema.required.length > 0
+            ? [...tool.input_schema.required]
+            : undefined,
+        },
+      }));
+
+      // Claude에게 어떤 온체인 도구를 호출할지 결정하도록 요청
+      const toolSelectionMessage = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 256,
+        system: '당신은 팩맨 게임 AI의 온체인 데이터 분석 보조입니다. 제공된 도구를 사용하여 전략 수립에 유용한 온체인 데이터를 조회하세요.',
+        messages: [
+          {
+            role: 'user',
+            content: '현재 매치에 필요한 온체인 데이터를 조회해주세요. 상대 에이전트 통계, 현재 배당률, 배팅 풀 크기 등을 확인하세요.',
+          },
+        ],
+        tools,
+        tool_choice: { type: 'auto' },
+      });
+
+      // tool_use 블록들을 수집하여 실행
+      const contextParts: string[] = [];
+
+      for (const block of toolSelectionMessage.content) {
+        if (block.type === 'tool_use') {
+          try {
+            const result = await executeMcpTool(
+              block.name,
+              block.input,
+              this.provider,
+              this.arenaContract,
+              this.wagerPoolContract,
+            );
+            contextParts.push(
+              `[${block.name}] ${JSON.stringify(result)}`,
+            );
+          } catch (toolError: unknown) {
+            // 개별 도구 실패는 무시하고 계속 진행
+            const errorMsg = toolError instanceof Error ? toolError.message : '알 수 없는 오류';
+            console.warn(`MCP 도구 '${block.name}' 실행 실패: ${errorMsg}`);
+          }
+        }
+      }
+
+      return contextParts.join('\n');
+    } catch (error: unknown) {
+      // 전체 MCP 조회 실패 시 빈 문자열 반환 (graceful degradation)
+      const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+      console.warn(`온체인 컨텍스트 조회 실패: ${errorMsg}`);
+      return '';
+    }
   }
 
   /**

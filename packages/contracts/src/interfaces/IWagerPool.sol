@@ -31,6 +31,9 @@ interface IWagerPool {
     /// @notice 배당금 수령 시 발생
     event WinningsClaimed(uint256 indexed matchId, address indexed bettor, uint256 amount);
 
+    /// @notice 배팅 풀 오픈 시 발생 — 역할 매핑 설정 완료
+    event PoolOpened(uint256 indexed matchId, Side pacmanSide);
+
     /// @notice 배팅 창 닫힘
     error BettingWindowClosed();
 
@@ -39,6 +42,11 @@ interface IWagerPool {
 
     /// @notice 이미 정산된 풀
     error AlreadySettled();
+
+    /// @notice 배팅 풀 오픈 — 매치별 역할 매핑 설정 (아레나 매니저 전용)
+    /// @param matchId 매치 ID
+    /// @param _pacmanSide 팩맨 역할이 속한 사이드 (AgentA 또는 AgentB)
+    function openPool(uint256 matchId, Side _pacmanSide) external;
 
     /// @notice 배팅 배치
     /// @param matchId 매치 ID

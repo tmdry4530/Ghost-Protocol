@@ -229,3 +229,42 @@ export const RATE_LIMIT_WRITE = 20;
 
 /** WebSocket 동시 방 제한 */
 export const WS_MAX_ROOMS = 5;
+
+// ===== v2 Moltbook 상수 =====
+
+/** Moltbook API 기본 URL (⚠️ www 필수) */
+export const MOLTBOOK_API_BASE = 'https://www.moltbook.com/api/v1';
+
+/** Moltbook 인증 헤더명 */
+export const MOLTBOOK_AUTH_HEADER = 'x-moltbook-identity';
+
+/** Moltbook 앱 키 헤더명 */
+export const MOLTBOOK_APP_KEY_HEADER = 'x-moltbook-app-key';
+
+/** Moltbook 레이트 리밋 설정 */
+export const MOLTBOOK_RATE_LIMITS = {
+  requestsPerMinute: 100,
+  postCooldownMinutes: 30,
+  commentCooldownSeconds: 20,
+  commentsPerDay: 50,
+  newAgent: {
+    postCooldownHours: 2,
+    commentCooldownSeconds: 60,
+    commentsPerDay: 20,
+    dmAllowed: false,
+  },
+} as const;
+
+/** 에이전트 역할별 제한 */
+export const ROLE_LIMITS = {
+  maxPacmanPerTournament: 4,
+  maxGhostPerTournament: 4,
+  maxGhostsPerMatch: 4,
+  maxPacmanPerMatch: 1,
+} as const;
+
+/** Agent Faucet API URL */
+export const AGENT_FAUCET_URL = 'https://agents.devnads.com/v1/faucet';
+
+/** Agent Verification API URL */
+export const AGENT_VERIFY_URL = 'https://agents.devnads.com/v1/verify';

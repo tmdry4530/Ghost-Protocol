@@ -385,7 +385,7 @@ contract FullBettingFlowTest is Test {
         wagerPool.voidMatch(matchId);
 
         // 풀 상태 확인
-        (IWagerPool.PoolStatus status,,,) = wagerPool.pools(matchId);
+        (IWagerPool.PoolStatus status,,,,,,,) = wagerPool.pools(matchId);
         assertEq(uint8(status), uint8(IWagerPool.PoolStatus.Refunded), unicode"풀 상태가 Refunded여야 함");
 
         // 전원 환불
@@ -430,7 +430,7 @@ contract FullBettingFlowTest is Test {
         }
 
         // 세션 상태가 Active로 전환되었는지 확인
-        (, ISurvivalBet.SessionStatus status,,,,,,) = survivalBet.getSession(sessionId);
+        (, ISurvivalBet.SessionStatus status,,,,,,,) = survivalBet.getSession(sessionId);
         assertEq(uint8(status), uint8(ISurvivalBet.SessionStatus.Active), unicode"세션 상태가 Active여야 함");
 
         // ── 4단계: 정산 (탈락 라운드 5) ──
@@ -491,7 +491,7 @@ contract FullBettingFlowTest is Test {
         vm.prank(arenaManager);
         survivalBet.settleSession(sessionId, 5);
 
-        (,,,,, uint256 totalWeightedShares,, uint256 bonusAmount) = survivalBet.getSession(sessionId);
+        (,,,,, uint256 totalWeightedShares,, uint256 bonusAmount,) = survivalBet.getSession(sessionId);
 
         // totalWeightedShares = 3*1e18 + 2*1e18 + 1*1e18 = 6e18
         assertEq(totalWeightedShares, 6 ether, unicode"가중 지분 총합 = 6 ETH");
@@ -558,7 +558,7 @@ contract FullBettingFlowTest is Test {
         vm.prank(arenaManager);
         survivalBet.settleSession(sessionId, 8);
 
-        (,,,,,,, uint256 bonusAmount) = survivalBet.getSession(sessionId);
+        (,,,,,,, uint256 bonusAmount,) = survivalBet.getSession(sessionId);
         assertEq(bonusAmount, 0.3 ether, unicode"서바이벌 보너스 = 3 ETH * 10% = 0.3 ETH");
 
         // 플레이어 보너스 수령
@@ -1125,15 +1125,17 @@ contract FullBettingFlowTest is Test {
         survivalBet.settleSession(sessionId, 8);
 
         // 서바이벌 보너스 = 6 ETH * 10% = 0.6 ETH
-        (,,,,,,, uint256 bonusBeforeHS) = survivalBet.getSession(sessionId);
+        (,,,,,,, uint256 bonusBeforeHS,) = survivalBet.getSession(sessionId);
         assertEq(bonusBeforeHS, 0.6 ether, unicode"서바이벌 보너스 = 0.6 ETH");
 
-        // 고점 보너스 트리거 → +0.3 ETH (6 ETH * 5%)
+        // 고점 보너스 트리거 → +0.3 ETH (6 ETH * 5%, 외부 자금으로 전송)
+        vm.deal(arenaManager, 1 ether);
         vm.prank(arenaManager);
-        survivalBet.triggerHighScoreBonus(sessionId);
+        survivalBet.triggerHighScoreBonus{value: 0.3 ether}(sessionId);
 
-        (,,,,,,, uint256 totalBonus) = survivalBet.getSession(sessionId);
-        assertEq(totalBonus, 0.9 ether, unicode"누적 보너스 = 서바이벌(0.6) + 고점(0.3) = 0.9 ETH");
+        (,,,,,,, uint256 survivalBonusAfterHS, uint256 highScoreBonusAfterHS) = survivalBet.getSession(sessionId);
+        assertEq(survivalBonusAfterHS, 0.6 ether, unicode"서바이벌 보너스 = 0.6 ETH");
+        assertEq(highScoreBonusAfterHS, 0.3 ether, unicode"고점 보너스 = 0.3 ETH");
 
         // 플레이어가 누적 보너스 수령
         uint256 playerBefore = survivalPlayer.balance;

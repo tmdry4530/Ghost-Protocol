@@ -1,0 +1,16 @@
+{
+  "name": "@ghost-protocol/indexer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ghost Protocol Envio 온체인 이벤트 인덱서",
+  "scripts": {
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start",
+    "stop": "envio stop",
+    "test": "envio test"
+  },
+  "devDependencies": {
+    "envio": "^2.0.0"
+  }
+}

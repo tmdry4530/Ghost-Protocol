@@ -154,6 +154,14 @@ contract WagerPoolTest is Test {
         wagerPool.voidMatch(matchId);
     }
 
+    /// @notice 풀 오픈 (역할 매핑)을 실행하는 헬퍼 (아레나 매니저로 실행)
+    /// @param matchId 매치 ID
+    /// @param pacmanSide 팩맨 역할이 속한 사이드
+    function _openPoolAs(uint256 matchId, IWagerPool.Side pacmanSide) internal {
+        vm.prank(arenaManager);
+        wagerPool.openPool(matchId, pacmanSide);
+    }
+
     /// @notice 표준 시나리오 설정: 양쪽에 배팅 → 잠금 → 정산
     /// @dev alice가 AgentA에 1 ETH, bob이 AgentB에 2 ETH 배팅 후 AgentA 승리로 정산
     function _setupStandardSettledMatch() internal {
@@ -319,6 +327,226 @@ contract WagerPoolTest is Test {
     }
 
     // ══════════════════════════════════════════════
+    //  2-B. placeBetByRole 테스트
+    // ══════════════════════════════════════════════
+
+    /// @notice 역할 기반 배팅: PACMAN(role=0) → AgentA 정상 배팅 및 totalA 업데이트 확인
+    function test_PlaceBetByRole_Pacman_Success() public {
+        // 풀 오픈: 팩맨 = AgentA
+        _openPoolAs(MATCH_ID, IWagerPool.Side.AgentA);
+
+        vm.prank(alice);
+        wagerPool.placeBetByRole{value: 1 ether}(MATCH_ID, 0);
+
+        (uint256 totalA, uint256 totalB) = wagerPool.getPoolAmounts(MATCH_ID);
+        assertEq(totalA, 1 ether, unicode"PACMAN 배팅 → totalA 업데이트");
+        assertEq(totalB, 0, unicode"totalB는 0이어야 함");
+
+        (IWagerPool.Side side, uint256 amount, bool claimed) = wagerPool.getBet(MATCH_ID, alice);
+        assertEq(uint8(side), uint8(IWagerPool.Side.AgentA), unicode"PACMAN → AgentA 매핑");
+        assertEq(amount, 1 ether, unicode"배팅 금액 1 ETH");
+        assertFalse(claimed, unicode"claimed는 false");
+
+        (,uint256 poolTotalA, uint256 poolTotalB,, uint256 pacmanSide, uint256 ghostSide,,) = wagerPool.pools(MATCH_ID);
+        assertEq(pacmanSide, 1 ether, unicode"pacmanSide 업데이트");
+        assertEq(ghostSide, 0, unicode"ghostSide는 0");
+        assertEq(poolTotalA, 1 ether, unicode"pool.totalA 업데이트됨");
+        assertEq(poolTotalB, 0, unicode"pool.totalB는 0");
+    }
+
+    /// @notice 역할 기반 배팅: GHOST(role=1) → AgentB 정상 배팅 및 totalB 업데이트 확인
+    function test_PlaceBetByRole_Ghost_Success() public {
+        // 풀 오픈: 팩맨 = AgentA → 고스트 = AgentB
+        _openPoolAs(MATCH_ID, IWagerPool.Side.AgentA);
+
+        vm.prank(bob);
+        wagerPool.placeBetByRole{value: 2 ether}(MATCH_ID, 1);
+
+        (uint256 totalA, uint256 totalB) = wagerPool.getPoolAmounts(MATCH_ID);
+        assertEq(totalA, 0, unicode"totalA는 0이어야 함");
+        assertEq(totalB, 2 ether, unicode"GHOST 배팅 → totalB 업데이트");
+
+        (IWagerPool.Side side, uint256 amount,) = wagerPool.getBet(MATCH_ID, bob);
+        assertEq(uint8(side), uint8(IWagerPool.Side.AgentB), unicode"GHOST → AgentB 매핑");
+        assertEq(amount, 2 ether, unicode"배팅 금액 2 ETH");
+
+        (,uint256 poolTotalA, uint256 poolTotalB,, uint256 pacmanSide, uint256 ghostSide,,) = wagerPool.pools(MATCH_ID);
+        assertEq(pacmanSide, 0, unicode"pacmanSide는 0");
+        assertEq(ghostSide, 2 ether, unicode"ghostSide 업데이트");
+        assertEq(poolTotalA, 0, unicode"pool.totalA는 0");
+        assertEq(poolTotalB, 2 ether, unicode"pool.totalB 업데이트됨");
+    }
+
+    /// @notice 역할 기반 배팅 후 정산 및 배당금 수령 — totalA/totalB가 올바르게 반영되어 payout 계산 정확성 검증
+    function test_PlaceBetByRole_SettlementAndPayout_Success() public {
+        // 풀 오픈: 팩맨 = AgentA
+        _openPoolAs(MATCH_ID, IWagerPool.Side.AgentA);
+
+        // alice: PACMAN (AgentA) 1 ETH
+        vm.prank(alice);
+        wagerPool.placeBetByRole{value: 1 ether}(MATCH_ID, 0);
+
+        // bob: GHOST (AgentB) 2 ETH
+        vm.prank(bob);
+        wagerPool.placeBetByRole{value: 2 ether}(MATCH_ID, 1);
+
+        _lockBetsAs(MATCH_ID);
+        _settleBetsAs(MATCH_ID, IWagerPool.Side.AgentA);
+
+        uint256 totalPool = 3 ether;
+        uint256 distributablePool = (totalPool * (BPS_DENOMINATOR - FEE_BPS)) / BPS_DENOMINATOR;
+        uint256 expectedPayout = (1 ether * distributablePool) / 1 ether; // alice는 유일한 승리자
+
+        uint256 aliceBalanceBefore = alice.balance;
+        vm.prank(alice);
+        wagerPool.claimWinnings(MATCH_ID);
+
+        assertEq(
+            alice.balance - aliceBalanceBefore,
+            expectedPayout,
+            unicode"역할 기반 배팅 후 배당금 계산 정확"
+        );
+    }
+
+    /// @notice 역할 기반 배팅: 무효 role(>1) 시도 → InvalidBetAmount 리버트
+    function test_PlaceBetByRole_RevertWhen_InvalidRole() public {
+        // 풀 오픈: 팩맨 = AgentA
+        _openPoolAs(MATCH_ID, IWagerPool.Side.AgentA);
+
+        vm.prank(alice);
+        vm.expectRevert(IWagerPool.InvalidBetAmount.selector);
+        wagerPool.placeBetByRole{value: 1 ether}(MATCH_ID, 2);
+    }
+
+    /// @notice 역할 기반 배팅: 일반 배팅과 혼합 시나리오 — 동일 사이드면 누적 가능
+    function test_PlaceBetByRole_MixedWithRegularBet_SameSide() public {
+        // 풀 오픈: 팩맨 = AgentA
+        _openPoolAs(MATCH_ID, IWagerPool.Side.AgentA);
+
+        // alice: 일반 배팅 AgentA 1 ETH
+        _placeBetAs(alice, MATCH_ID, IWagerPool.Side.AgentA, 1 ether);
+
+        // bob: 역할 기반 배팅 PACMAN (AgentA) 2 ETH
+        vm.prank(bob);
+        wagerPool.placeBetByRole{value: 2 ether}(MATCH_ID, 0);
+
+        (uint256 totalA, uint256 totalB) = wagerPool.getPoolAmounts(MATCH_ID);
+        assertEq(totalA, 3 ether, unicode"일반 + 역할 배팅 totalA 합산");
+        assertEq(totalB, 0, unicode"totalB는 0");
+
+        (,uint256 poolTotalA,,,uint256 pacmanSide,,,) = wagerPool.pools(MATCH_ID);
+        assertEq(poolTotalA, 3 ether, unicode"pool.totalA 합산");
+        assertEq(pacmanSide, 2 ether, unicode"pacmanSide는 역할 배팅만 포함");
+    }
+
+    // ──────────────────────────────────────────────
+    //  2-C. openPool 및 역할 역전 테스트
+    // ──────────────────────────────────────────────
+
+    /// @notice openPool 정상 호출 — roleAssigned가 true로 설정되고 이벤트 발생
+    function test_OpenPool_Success() public {
+        vm.expectEmit(true, false, false, true);
+        emit IWagerPool.PoolOpened(MATCH_ID, IWagerPool.Side.AgentA);
+
+        _openPoolAs(MATCH_ID, IWagerPool.Side.AgentA);
+
+        (,,,,,,IWagerPool.Side pacmanSideEnum, bool roleAssigned) = wagerPool.pools(MATCH_ID);
+        assertEq(uint8(pacmanSideEnum), uint8(IWagerPool.Side.AgentA), unicode"pacmanSideEnum이 AgentA여야 함");
+        assertTrue(roleAssigned, unicode"roleAssigned가 true여야 함");
+    }
+
+    /// @notice openPool 중복 호출 시 InvalidPoolStatus로 리버트
+    function test_OpenPool_RevertWhen_AlreadyAssigned() public {
+        _openPoolAs(MATCH_ID, IWagerPool.Side.AgentA);
+
+        vm.prank(arenaManager);
+        vm.expectRevert(WagerPool.InvalidPoolStatus.selector);
+        wagerPool.openPool(MATCH_ID, IWagerPool.Side.AgentB);
+    }
+
+    /// @notice openPool 아레나 매니저가 아닌 계정이 호출 시 Unauthorized로 리버트
+    function test_OpenPool_RevertWhen_Unauthorized() public {
+        vm.prank(stranger);
+        vm.expectRevert(WagerPool.Unauthorized.selector);
+        wagerPool.openPool(MATCH_ID, IWagerPool.Side.AgentA);
+    }
+
+    /// @notice openPool이 호출되지 않은 상태에서 placeBetByRole 호출 시 InvalidPoolStatus로 리버트
+    function test_PlaceBetByRole_RevertWhen_RoleNotAssigned() public {
+        vm.prank(alice);
+        vm.expectRevert(WagerPool.InvalidPoolStatus.selector);
+        wagerPool.placeBetByRole{value: 1 ether}(MATCH_ID, 0);
+    }
+
+    /// @notice 팩맨이 AgentB인 경우 — PACMAN(role=0) 배팅이 AgentB에 매핑되는지 확인
+    function test_PlaceBetByRole_PacmanIsAgentB() public {
+        // 풀 오픈: 팩맨 = AgentB
+        _openPoolAs(MATCH_ID, IWagerPool.Side.AgentB);
+
+        // alice: PACMAN(role=0) 배팅 → AgentB에 매핑되어야 함
+        vm.prank(alice);
+        wagerPool.placeBetByRole{value: 1 ether}(MATCH_ID, 0);
+
+        (IWagerPool.Side side, uint256 amount,) = wagerPool.getBet(MATCH_ID, alice);
+        assertEq(uint8(side), uint8(IWagerPool.Side.AgentB), unicode"PACMAN 배팅이 AgentB에 매핑되어야 함");
+        assertEq(amount, 1 ether, unicode"배팅 금액 1 ETH");
+
+        (uint256 totalA, uint256 totalB) = wagerPool.getPoolAmounts(MATCH_ID);
+        assertEq(totalA, 0, unicode"totalA는 0이어야 함");
+        assertEq(totalB, 1 ether, unicode"totalB에 1 ETH 반영");
+
+        // bob: GHOST(role=1) 배팅 → 팩맨의 반대 = AgentA에 매핑
+        vm.prank(bob);
+        wagerPool.placeBetByRole{value: 2 ether}(MATCH_ID, 1);
+
+        (IWagerPool.Side bobSide,,) = wagerPool.getBet(MATCH_ID, bob);
+        assertEq(uint8(bobSide), uint8(IWagerPool.Side.AgentA), unicode"GHOST 배팅이 AgentA에 매핑되어야 함");
+
+        (totalA, totalB) = wagerPool.getPoolAmounts(MATCH_ID);
+        assertEq(totalA, 2 ether, unicode"totalA에 2 ETH 반영");
+        assertEq(totalB, 1 ether, unicode"totalB에 1 ETH 유지");
+    }
+
+    /// @notice 팩맨이 AgentB인 경우 전체 정산 플로우 — 역할 역전 시 배당금 계산 정확성 검증
+    function test_PlaceBetByRole_SettlementCorrect_WhenPacmanIsAgentB() public {
+        // 풀 오픈: 팩맨 = AgentB (역전된 매핑)
+        _openPoolAs(MATCH_ID, IWagerPool.Side.AgentB);
+
+        // alice: PACMAN(role=0) → AgentB에 1 ETH
+        vm.prank(alice);
+        wagerPool.placeBetByRole{value: 1 ether}(MATCH_ID, 0);
+
+        // bob: GHOST(role=1) → AgentA에 2 ETH
+        vm.prank(bob);
+        wagerPool.placeBetByRole{value: 2 ether}(MATCH_ID, 1);
+
+        _lockBetsAs(MATCH_ID);
+
+        // AgentB 승리 = 팩맨(alice) 승리
+        _settleBetsAs(MATCH_ID, IWagerPool.Side.AgentB);
+
+        uint256 totalPool = 3 ether;
+        uint256 distributablePool = (totalPool * (BPS_DENOMINATOR - FEE_BPS)) / BPS_DENOMINATOR;
+        // alice는 유일한 AgentB 배팅자 → distributablePool 전액 수령
+        uint256 expectedPayout = (1 ether * distributablePool) / 1 ether;
+
+        uint256 aliceBalanceBefore = alice.balance;
+        vm.prank(alice);
+        wagerPool.claimWinnings(MATCH_ID);
+
+        assertEq(
+            alice.balance - aliceBalanceBefore,
+            expectedPayout,
+            unicode"역전 매핑 시 PACMAN 승리 배당금 정확"
+        );
+
+        // bob(GHOST=AgentA)은 패배 → 수령 불가
+        vm.prank(bob);
+        vm.expectRevert(WagerPool.NotOnWinningSide.selector);
+        wagerPool.claimWinnings(MATCH_ID);
+    }
+
+    // ══════════════════════════════════════════════
     //  3. lockBets 테스트
     // ══════════════════════════════════════════════
 
@@ -332,7 +560,7 @@ contract WagerPoolTest is Test {
 
         _lockBetsAs(MATCH_ID);
 
-        (IWagerPool.PoolStatus status,,,) = wagerPool.pools(MATCH_ID);
+        (IWagerPool.PoolStatus status,,,,,,,) = wagerPool.pools(MATCH_ID);
         assertEq(uint8(status), uint8(IWagerPool.PoolStatus.Locked), unicode"풀 상태가 Locked여야 함");
     }
 
@@ -362,7 +590,7 @@ contract WagerPoolTest is Test {
 
         _lockBetsAs(MATCH_ID);
 
-        (IWagerPool.PoolStatus status,,,) = wagerPool.pools(MATCH_ID);
+        (IWagerPool.PoolStatus status,,,,,,,) = wagerPool.pools(MATCH_ID);
         assertEq(uint8(status), uint8(IWagerPool.PoolStatus.Locked), unicode"빈 풀도 잠금 가능해야 함");
     }
 
@@ -385,7 +613,7 @@ contract WagerPoolTest is Test {
 
         _settleBetsAs(MATCH_ID, IWagerPool.Side.AgentA);
 
-        (IWagerPool.PoolStatus status,,, IWagerPool.Side winningSide) = wagerPool.pools(MATCH_ID);
+        (IWagerPool.PoolStatus status,,, IWagerPool.Side winningSide,,,,) = wagerPool.pools(MATCH_ID);
         assertEq(uint8(status), uint8(IWagerPool.PoolStatus.Settled), unicode"풀 상태가 Settled여야 함");
         assertEq(uint8(winningSide), uint8(IWagerPool.Side.AgentA), unicode"승리 사이드가 AgentA여야 함");
 
@@ -600,7 +828,7 @@ contract WagerPoolTest is Test {
 
         _voidMatchAs(MATCH_ID);
 
-        (IWagerPool.PoolStatus status,,,) = wagerPool.pools(MATCH_ID);
+        (IWagerPool.PoolStatus status,,,,,,,) = wagerPool.pools(MATCH_ID);
         assertEq(uint8(status), uint8(IWagerPool.PoolStatus.Refunded), unicode"풀 상태가 Refunded여야 함");
     }
 
@@ -611,7 +839,7 @@ contract WagerPoolTest is Test {
 
         _voidMatchAs(MATCH_ID);
 
-        (IWagerPool.PoolStatus status,,,) = wagerPool.pools(MATCH_ID);
+        (IWagerPool.PoolStatus status,,,,,,,) = wagerPool.pools(MATCH_ID);
         assertEq(uint8(status), uint8(IWagerPool.PoolStatus.Refunded), unicode"Locked에서 무효화 가능해야 함");
     }
 
@@ -1253,7 +1481,7 @@ contract WagerPoolTest is Test {
         vm.prank(newManager);
         wagerPool.lockBets(MATCH_ID);
 
-        (IWagerPool.PoolStatus status,,,) = wagerPool.pools(MATCH_ID);
+        (IWagerPool.PoolStatus status,,,,,,,) = wagerPool.pools(MATCH_ID);
         assertEq(uint8(status), uint8(IWagerPool.PoolStatus.Locked), unicode"신규 매니저 잠금 성공");
     }
 

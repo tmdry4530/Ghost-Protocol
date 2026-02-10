@@ -15,6 +15,7 @@ import { parseAbi } from 'viem';
 export const WAGER_POOL_ABI = parseAbi([
   // 쓰기 함수
   'function placeBet(uint256 matchId, uint8 side) external payable',
+  'function placeBetByRole(uint256 matchId, uint8 role) external payable',
   'function claimWinnings(uint256 matchId) external',
   'function lockBets(uint256 matchId) external',
   'function settleBets(uint256 matchId, uint8 winner) external',

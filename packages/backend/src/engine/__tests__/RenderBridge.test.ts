@@ -307,7 +307,7 @@ describe('RenderBridge', () => {
 
     it('JSON 문자열을 GameStateFrame으로 역직렬화해야 함', () => {
       const state = createTestGameState();
-      const frame: unknown = bridge.toFrame(state);
+      const frame = bridge.toFrame(state);
       const serialized = JSON.stringify(frame);
 
       const deserialized = bridge.deserialize(serialized);

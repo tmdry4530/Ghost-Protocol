@@ -1,0 +1,66 @@
+type Agent @entity {
+  id: ID!
+  address: String!
+  name: String!
+  agentId: BigInt!
+  registeredAt: BigInt!
+  blockNumber: BigInt!
+}
+
+type Tournament @entity {
+  id: ID!
+  tournamentId: BigInt!
+  startTime: BigInt!
+  createdAt: BigInt!
+}
+
+type MatchResult @entity {
+  id: ID!
+  matchId: BigInt!
+  winner: String!
+  stateHash: String!
+  recordedAt: BigInt!
+}
+
+type Bet @entity {
+  id: ID!
+  matchId: String!
+  bettor: String!
+  agent: String!
+  amount: String!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type Settlement @entity {
+  id: ID!
+  matchId: String!
+  bettor: String!
+  payout: String!
+  timestamp: BigInt!
+}
+
+type BettingPool @entity {
+  id: ID!
+  matchId: String!
+  totalAmount: String!
+  betCount: Int!
+  lockTime: BigInt
+}
+
+type Prediction @entity {
+  id: ID!
+  sessionId: String!
+  bettor: String!
+  predictedRound: Int!
+  amount: String!
+  timestamp: BigInt!
+}
+
+type SessionResult @entity {
+  id: ID!
+  sessionId: String!
+  eliminationRound: Int!
+  totalPool: String!
+  settledAt: BigInt!
+}

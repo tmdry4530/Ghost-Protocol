@@ -1,5 +1,12 @@
 # CLAUDE.md — Ghost Protocol
 
+## Dev Server Rules
+
+- **작업 완료 후 항상 프론트엔드 dev 서버를 재시작한다.** Vite 캐시(`node_modules/.vite`)를 삭제하고 서버를 kill 후 재시작하여 HMR 캐시 문제를 방지한다.
+- 재시작 절차: `kill (port 5173 프로세스)` → `rm -rf packages/frontend/node_modules/.vite` → `cd packages/frontend && pnpm dev &`
+
+---
+
 ## Language Rules
 
 - **Input**: All prompts and commands are written in English.
@@ -339,3 +346,13 @@ VITE_SURVIVAL_BET_ADDRESS=
 - [ ] Rate limiting on all REST endpoints.
 - [ ] WebSocket authentication via EIP-712 signature for betting actions.
 - [ ] CORS configured to allow only the frontend origin.
+
+## Browser Automation
+
+Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
+
+Core workflow:
+1. `agent-browser open <url>` - Navigate to page
+2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
+3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
+4. Re-snapshot after page changes

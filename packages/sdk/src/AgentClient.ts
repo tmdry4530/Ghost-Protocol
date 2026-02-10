@@ -20,6 +20,10 @@ export interface AgentClientConfig {
   readonly maxReconnectAttempts?: number;
   /** EIP-712 인증용 개인키 (선택) */
   readonly privateKey?: string;
+  /** Moltbook API key (선택 - moltbook_xxx 형식) */
+  readonly moltbookApiKey?: string;
+  /** 희망 역할 (선택 - pacman 또는 ghost) */
+  readonly role?: 'pacman' | 'ghost';
 }
 
 /**
@@ -43,11 +47,14 @@ export class AgentClient {
   private readonly config: Required<AgentClientConfig>;
   private reconnectAttempts = 0;
   private connected = false;
+  private identityToken: string | null = null;
+  private tokenRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: AgentClientConfig) {
     this.config = {
       autoReconnect: true,
       maxReconnectAttempts: 5,
+      role: 'pacman',
       ...config,
     } as Required<AgentClientConfig>;
   }
@@ -58,27 +65,41 @@ export class AgentClient {
    */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(this.config.serverUrl);
-
-      this.ws.on('open', () => {
-        void (async () => {
-          this.connected = true;
-          this.reconnectAttempts = 0;
-
-          // EIP-712 인증 처리 (선택적)
-          if (this.config.privateKey) {
-            try {
-              await this.authenticateWithEIP712();
-            } catch (error) {
-              this.config.agent.onError?.(error as Error);
-              reject(error instanceof Error ? error : new Error(String(error)));
-              return;
-            }
+      void (async () => {
+        try {
+          // Moltbook 인증 흐름 (선택적)
+          if (this.config.moltbookApiKey) {
+            await this.refreshMoltbookToken();
+            // 토큰 자동 갱신 설정 (50분마다, 1시간 만료 전)
+            this.tokenRefreshTimer = setInterval(
+              () => void this.refreshMoltbookToken().catch((err) => {
+                this.config.agent.onError?.(err as Error);
+              }),
+              50 * 60 * 1000,
+            );
           }
 
-          resolve();
-        })();
-      });
+          this.ws = new WebSocket(this.config.serverUrl);
+
+          this.ws.on('open', () => {
+            void (async () => {
+              this.connected = true;
+              this.reconnectAttempts = 0;
+
+              // EIP-712 인증 처리 (선택적)
+              if (this.config.privateKey) {
+                try {
+                  await this.authenticateWithEIP712();
+                } catch (error) {
+                  this.config.agent.onError?.(error as Error);
+                  reject(error instanceof Error ? error : new Error(String(error)));
+                  return;
+                }
+              }
+
+              resolve();
+            })();
+          });
 
       this.ws.on('message', (data: WebSocket.Data) => {
         this.handleMessage(data);
@@ -89,12 +110,16 @@ export class AgentClient {
         this.handleDisconnect();
       });
 
-      this.ws.on('error', (error: Error) => {
-        if (!this.connected) {
-          reject(error);
+          this.ws.on('error', (error: Error) => {
+            if (!this.connected) {
+              reject(error);
+            }
+            this.config.agent.onError?.(error);
+          });
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)));
         }
-        this.config.agent.onError?.(error);
-      });
+      })();
     });
   }
 
@@ -105,6 +130,12 @@ export class AgentClient {
     this.connected = false;
     this.ws?.close();
     this.ws = null;
+
+    // 토큰 갱신 타이머 정리
+    if (this.tokenRefreshTimer) {
+      clearInterval(this.tokenRefreshTimer);
+      this.tokenRefreshTimer = null;
+    }
   }
 
   /**
@@ -231,5 +262,73 @@ export class AgentClient {
       signature,
       timestamp,
     });
+  }
+
+  /**
+   * Moltbook identity token 갱신
+   * @private
+   */
+  private async refreshMoltbookToken(): Promise<void> {
+    if (!this.config.moltbookApiKey) {
+      return;
+    }
+
+    // ⚠️ 반드시 www.moltbook.com 사용 (www 없으면 Authorization 헤더가 strip됨)
+    const response = await fetch(
+      'https://www.moltbook.com/api/v1/agents/me/identity-token',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.moltbookApiKey}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        `Moltbook identity token 발급 실패: ${(errorData as { error?: string }).error ?? response.statusText}`
+      );
+    }
+
+    const data = await response.json() as { identity_token: string };
+    this.identityToken = data.identity_token;
+  }
+
+  /**
+   * Moltbook 인증으로 서버에 에이전트 등록
+   * @returns 세션 토큰
+   */
+  async registerWithMoltbook(): Promise<string> {
+    if (!this.identityToken) {
+      throw new Error('Moltbook identity token이 없습니다. connect()를 먼저 호출하세요.');
+    }
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Moltbook-Identity': this.identityToken,
+    };
+
+    const response = await fetch(
+      `${this.config.serverUrl.replace('ws://', 'http://').replace('wss://', 'https://')}/api/v1/arena/register`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          role: this.config.role,
+          agentName: this.config.agent.constructor.name,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        `참가 등록 실패: ${(errorData as { error?: string }).error ?? response.statusText}`
+      );
+    }
+
+    const data = await response.json() as { data: { sessionToken: string } };
+    return data.data.sessionToken;
   }
 }

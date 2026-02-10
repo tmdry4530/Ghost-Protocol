@@ -38,6 +38,19 @@ const envSchema = z.object({
 
   /** 실행 환경 */
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+
+  /** Circle Wallet API 설정 (선택적) */
+  CIRCLE_API_KEY: z.string().optional(),
+  CIRCLE_API_BASE: z.string().default('https://api.circle.com'),
+  CIRCLE_WALLET_SET_ID: z.string().optional(),
+  CIRCLE_ENTITY_SECRET: z.string().optional(),
+
+  /** Moltbook API 설정 (v2) */
+  MOLTBOOK_API_BASE: z.string().default('https://www.moltbook.com/api/v1'),
+  MOLTBOOK_APP_API_KEY: z.string().optional(),
+
+  /** Envio Indexer GraphQL 엔드포인트 */
+  ENVIO_GRAPHQL_URL: z.string().default('http://localhost:8080/v1/graphql'),
 });
 
 /** 환경 변수 타입 */
@@ -58,3 +71,50 @@ export function loadEnv(): Env {
 
   return result.data;
 }
+
+/**
+ * Monad 네트워크 상세 설정
+ *
+ * 참조: docs/RESOURCE-GUIDE.md 섹션 4-3
+ */
+export const MONAD_NETWORK = {
+  /** 메인넷 설정 */
+  mainnet: {
+    chainId: 143,
+    rpc: [
+      'https://rpc.monad.xyz', // QuickNode, 25 rps
+      'https://rpc1.monad.xyz', // Alchemy, 15 rps
+      'https://rpc2.monad.xyz', // Goldsky Edge — 아카이브 쿼리용
+      'https://rpc3.monad.xyz', // Ankr
+    ],
+    explorers: [
+      'https://monadscan.com',
+      'https://monadvision.com',
+      'https://monad.socialscan.io',
+    ],
+    currency: 'MON',
+  },
+  /** 테스트넷 설정 */
+  testnet: {
+    chainId: 10143,
+    rpc: ['https://testnet-rpc.monad.xyz'],
+    faucet: 'https://faucet.monad.xyz',
+    agentFaucet: 'https://agents.devnads.com/v1/faucet',
+    explorer: 'https://monadvision.com',
+  },
+  /** 성능 특성 */
+  performance: {
+    tps: 10000,
+    blockTimeMs: 400,
+    finalityMs: 800, // 2블록
+    verifiedMs: 1200, // 3블록
+    gasPerSecond: 500_000_000,
+  },
+  /** 표준 컨트랙트 주소 */
+  canonicalContracts: {
+    WMON: '0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A',
+    Multicall3: '0xcA11bde05977b3631167028862bE2a173976CA11',
+    Permit2: '0x000000000022d473030f116ddee9f6b43ac78ba3',
+    CreateX: '0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed',
+  },
+} as const;

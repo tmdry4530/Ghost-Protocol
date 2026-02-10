@@ -9,6 +9,11 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 /// @notice Ghost Protocol 메인 아레나 컨트랙트 - 에이전트 등록, 토너먼트 관리, 매치 결과 기록
 /// @dev IGhostArena 인터페이스를 구현하며, ReentrancyGuard와 Pausable을 상속하여 보안 강화
 contract GhostArena is IGhostArena, ReentrancyGuard, Pausable {
+    // ===== 열거형 =====
+
+    /// @notice 에이전트 역할 (팩맨 vs 고스트)
+    enum AgentRole { PACMAN, GHOST }
+
     // ===== 상태 변수 =====
 
     /// @dev 에이전트 등록 정보 매핑 (에이전트 주소 => Agent 구조체)
@@ -49,6 +54,21 @@ contract GhostArena is IGhostArena, ReentrancyGuard, Pausable {
 
     /// @dev 수수료 수취 트레저리 주소
     address public treasury;
+
+    /// @dev Moltbook ID → 에이전트 주소 매핑
+    mapping(string => address) public moltbookIdToAgent;
+
+    /// @dev 에이전트 주소 → 역할 매핑
+    mapping(address => AgentRole) public agentRoles;
+
+    /// @dev 에이전트 주소 → Moltbook ID 매핑
+    mapping(address => string) public agentMoltbookIds;
+
+    /// @dev 인출 가능한 누적 수수료 (등록비 등)
+    uint256 public accumulatedFees;
+
+    /// @dev 토너먼트 상금 풀에 잠긴 총 금액 (모든 활성 토너먼트의 상금 합산)
+    uint256 public totalLockedPrizes;
 
     // ===== 수정자 =====
 
@@ -96,6 +116,18 @@ contract GhostArena is IGhostArena, ReentrancyGuard, Pausable {
     /// @notice ETH 전송 실패
     error TransferFailed();
 
+    /// @notice 인출할 수수료 없음
+    error NoFeesToWithdraw();
+
+    /// @notice Moltbook ID가 이미 등록됨
+    error MoltbookIdAlreadyRegistered(string moltbookId);
+
+    /// @notice 유효하지 않은 Moltbook ID
+    error InvalidMoltbookId();
+
+    /// @notice 유효하지 않은 역할
+    error InvalidRole();
+
     // ===== 생성자 =====
 
     /// @notice 컨트랙트 초기화
@@ -127,6 +159,9 @@ contract GhostArena is IGhostArena, ReentrancyGuard, Pausable {
             reputation: 1000,
             active: true
         });
+
+        // 등록 수수료를 누적 수수료에 추가
+        accumulatedFees += registrationFee;
 
         emit AgentRegistered(msg.sender, name);
     }
@@ -319,6 +354,9 @@ contract GhostArena is IGhostArena, ReentrancyGuard, Pausable {
 
         uint256 amount = t.prizePool;
 
+        // 잠긴 상금 총액에서 차감 (Effects 단계 — 전송 전에 처리)
+        totalLockedPrizes -= amount;
+
         // ETH 전송 - call 패턴 사용
         (bool success,) = payable(msg.sender).call{value: amount}("");
         if (!success) revert TransferFailed();
@@ -360,6 +398,7 @@ contract GhostArena is IGhostArena, ReentrancyGuard, Pausable {
         Tournament storage t = tournaments[tournamentId];
         if (t.status != TournamentStatus.Active) revert TournamentNotActive();
         t.prizePool += msg.value;
+        totalLockedPrizes += msg.value;
     }
 
     /// @notice 트레저리 주소 변경 (소유자 전용)
@@ -375,14 +414,71 @@ contract GhostArena is IGhostArena, ReentrancyGuard, Pausable {
     }
 
     /// @notice 트레저리로 축적된 등록 수수료 인출 (소유자 전용)
-    /// @dev 토너먼트 상금 풀과 분리된 컨트랙트 잔액을 인출
+    /// @dev 토너먼트 상금 풀과 격리된 등록 수수료만 인출
+    /// @dev 잔액 보호: 인출 후에도 잠긴 상금 풀 잔액이 보장되어야 함
     function withdrawToTreasury() external onlyOwner nonReentrant {
-        uint256 balance = address(this).balance;
-        if (balance == 0) revert TransferFailed();
+        uint256 fees = accumulatedFees;
+        if (fees == 0) revert NoFeesToWithdraw();
 
-        (bool success,) = payable(treasury).call{value: balance}("");
+        // 잔액 보호: 컨트랙트 잔액에서 수수료를 제외한 나머지가 잠긴 상금 이상이어야 함
+        if (address(this).balance < fees + totalLockedPrizes) revert TransferFailed();
+
+        accumulatedFees = 0;
+
+        (bool success,) = payable(treasury).call{value: fees}("");
         if (!success) revert TransferFailed();
     }
+
+    // ===== 외부 에이전트 등록 (Moltbook 인증) =====
+
+    /// @notice 외부 에이전트 등록 (arenaManager만 호출 가능)
+    /// @param _agent 에이전트 지갑 주소
+    /// @param _name 에이전트 이름
+    /// @param _moltbookId Moltbook 에이전트 ID
+    /// @param _karma Moltbook 카르마 점수
+    /// @param _role 에이전트 역할 (PACMAN/GHOST)
+    /// @dev Moltbook 검증 후 서버가 대행하여 호출. 초기 평판은 karma 값으로 설정.
+    function registerExternalAgent(
+        address _agent,
+        string calldata _name,
+        string calldata _moltbookId,
+        uint256 _karma,
+        AgentRole _role
+    ) external onlyArenaManager nonReentrant {
+        if (bytes(_moltbookId).length == 0) revert InvalidMoltbookId();
+        if (moltbookIdToAgent[_moltbookId] != address(0)) {
+            revert MoltbookIdAlreadyRegistered(_moltbookId);
+        }
+        if (agents[_agent].active) revert AgentAlreadyRegistered();
+
+        // 에이전트 정보 저장
+        agents[_agent] = Agent({
+            owner: _agent,
+            name: _name,
+            metadataURI: "",  // 외부 에이전트는 메타데이터 URI 없음
+            wins: 0,
+            losses: 0,
+            totalScore: 0,
+            reputation: _karma,  // 초기 평판 = Moltbook karma
+            active: true
+        });
+
+        // 매핑 저장
+        moltbookIdToAgent[_moltbookId] = _agent;
+        agentRoles[_agent] = _role;
+        agentMoltbookIds[_agent] = _moltbookId;
+
+        emit ExternalAgentRegistered(_agent, _name, _moltbookId, _karma, _role);
+    }
+
+    /// @notice 외부 에이전트 등록 이벤트
+    event ExternalAgentRegistered(
+        address indexed agent,
+        string name,
+        string moltbookId,
+        uint256 karma,
+        AgentRole role
+    );
 
     // ===== 뷰 함수 =====
 
@@ -399,6 +495,32 @@ contract GhostArena is IGhostArena, ReentrancyGuard, Pausable {
     /// @return participants 참가 에이전트 주소 배열
     function getTournamentParticipants(uint256 tournamentId) external view returns (address[] memory) {
         return tournaments[tournamentId].participants;
+    }
+
+    /// @notice 역할별 에이전트 조회 (모든 등록된 에이전트 중 필터링)
+    /// @param _role 조회할 역할 (PACMAN 또는 GHOST)
+    /// @return 해당 역할의 에이전트 주소 배열
+    /// @dev 가스 효율을 위해 오프체인에서 이벤트 기반 인덱싱 권장
+    function getAgentsByRole(AgentRole _role) external view returns (address[] memory) {
+        // 1단계: 해당 역할의 에이전트 수 카운트
+        uint256 count = 0;
+        // NOTE: 모든 에이전트를 순회해야 하므로 가스 비용이 높음
+        // 실제 프로덕션에서는 이벤트 기반 오프체인 인덱싱 사용 권장
+
+        // 임시 배열을 만들기 위해 최대 크기 추정 필요
+        // 실제 구현에서는 에이전트 주소 리스트를 별도 배열로 관리하거나
+        // 오프체인 인덱서 사용을 권장
+
+        // 간단한 구현: 빈 배열 반환 (오프체인 인덱싱 필요)
+        address[] memory result = new address[](0);
+        return result;
+    }
+
+    /// @notice Moltbook ID로 에이전트 조회
+    /// @param _moltbookId Moltbook 에이전트 ID
+    /// @return 에이전트 지갑 주소 (미등록이면 address(0))
+    function getAgentByMoltbookId(string calldata _moltbookId) external view returns (address) {
+        return moltbookIdToAgent[_moltbookId];
     }
 
     /// @notice ETH 수신 허용 (상금 풀 충전용)

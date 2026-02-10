@@ -5,9 +5,13 @@ import { AudioToggle } from '@/components/common/AudioToggle';
 import { NetworkSwitcher } from '@/components/common/NetworkSwitcher';
 import { GhostParticles } from '@/components/common/GhostParticles';
 import { useDashboardStore } from '@/stores/dashboardStore';
+import { useLobbySocket } from '@/hooks/useLobbySocket';
 
 /** 메인 레이아웃 컴포넌트 — 헤더, 콘텐츠, 푸터 */
 export function Layout() {
+  // 모든 페이지에서 로비 WebSocket 연결 유지 (헤더 라이브 카운터용)
+  useLobbySocket();
+
   const { matches, tournaments } = useDashboardStore();
   const activeMatchCount = matches.filter((m) => m.status === 'active' || m.status === 'betting').length;
   const activeTournamentCount = tournaments.filter((t) => t.status === 'active').length;

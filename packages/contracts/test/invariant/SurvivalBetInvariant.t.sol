@@ -35,7 +35,7 @@ contract SurvivalBetInvariant is StdInvariant, Test {
                 uint8 eliminationRound,
                 uint256 totalWeightedShares,
                 bool playerBonusClaimed,
-                uint256 playerBonusAmount
+                uint256 playerBonusAmount,
             ) = survivalBet.getSession(sessionId);
 
             if (status != ISurvivalBet.SessionStatus.Settled) continue;
@@ -86,7 +86,7 @@ contract SurvivalBetInvariant is StdInvariant, Test {
     /// @dev Settled 상태인 세션은 절대 이전 상태로 돌아가지 않음
     function invariant_SessionStateMachine() public view {
         for (uint256 sessionId = 0; sessionId < handler.nextSessionId(); sessionId++) {
-            (, ISurvivalBet.SessionStatus status,,,,,,) = survivalBet.getSession(sessionId);
+            (, ISurvivalBet.SessionStatus status,,,,,,,) = survivalBet.getSession(sessionId);
 
             ISurvivalBet.SessionStatus previousStatus = handler.sessionPreviousStatus(sessionId);
 
@@ -113,12 +113,12 @@ contract SurvivalBetInvariant is StdInvariant, Test {
     /// @dev _calculateWeight 함수 로직 검증
     function invariant_WeightFormulaCorrectness() public view {
         for (uint256 sessionId = 0; sessionId < handler.nextSessionId(); sessionId++) {
-            (, ISurvivalBet.SessionStatus status,,,,,,) = survivalBet.getSession(sessionId);
+            (, ISurvivalBet.SessionStatus status,,,,,,,) = survivalBet.getSession(sessionId);
 
             if (status != ISurvivalBet.SessionStatus.Settled) continue;
 
             uint256 bettorCount = survivalBet.getBettorCount(sessionId);
-            (,,,, uint8 eliminationRound,,,) = survivalBet.getSession(sessionId);
+            (,,,, uint8 eliminationRound,,,,) = survivalBet.getSession(sessionId);
 
             for (uint256 i = 0; i < bettorCount; i++) {
                 address bettor = handler.getSessionBettor(sessionId, i);
@@ -136,7 +136,7 @@ contract SurvivalBetInvariant is StdInvariant, Test {
     /// @dev 정산된 세션의 재정 건전성 검증
     function invariant_FeeAndPayoutIntegrity() public view {
         for (uint256 sessionId = 0; sessionId < handler.nextSessionId(); sessionId++) {
-            (, ISurvivalBet.SessionStatus status, uint256 totalPool,,,,, uint256 playerBonusAmount) =
+            (, ISurvivalBet.SessionStatus status, uint256 totalPool,,,,, uint256 playerBonusAmount,) =
                 survivalBet.getSession(sessionId);
 
             if (status != ISurvivalBet.SessionStatus.Settled) continue;
@@ -222,7 +222,7 @@ contract SurvivalBetHandler is Test {
         if (nextSessionId == 0) return;
 
         uint256 sessionId = bound(sessionSeed, 0, nextSessionId - 1);
-        (, ISurvivalBet.SessionStatus status,,,,,,) = survivalBet.getSession(sessionId);
+        (, ISurvivalBet.SessionStatus status,,,,,,,) = survivalBet.getSession(sessionId);
 
         if (status != ISurvivalBet.SessionStatus.Betting) return;
 
@@ -252,7 +252,7 @@ contract SurvivalBetHandler is Test {
         if (nextSessionId == 0) return;
 
         uint256 sessionId = bound(sessionSeed, 0, nextSessionId - 1);
-        (, ISurvivalBet.SessionStatus status,, uint8 currentRound,,,,) = survivalBet.getSession(sessionId);
+        (, ISurvivalBet.SessionStatus status,, uint8 currentRound,,,,,) = survivalBet.getSession(sessionId);
 
         if (status == ISurvivalBet.SessionStatus.Settled) return;
 
@@ -263,7 +263,7 @@ contract SurvivalBetHandler is Test {
         survivalBet.recordRoundSurvived(sessionId, newRound);
 
         // 상태 추적
-        (, ISurvivalBet.SessionStatus newStatus,,,,,,) = survivalBet.getSession(sessionId);
+        (, ISurvivalBet.SessionStatus newStatus,,,,,,,) = survivalBet.getSession(sessionId);
         sessionPreviousStatus[sessionId] = newStatus;
     }
 
@@ -273,7 +273,7 @@ contract SurvivalBetHandler is Test {
         if (nextSessionId == 0) return;
 
         uint256 sessionId = bound(sessionSeed, 0, nextSessionId - 1);
-        (, ISurvivalBet.SessionStatus status,, uint8 currentRound,,,,) = survivalBet.getSession(sessionId);
+        (, ISurvivalBet.SessionStatus status,, uint8 currentRound,,,,,) = survivalBet.getSession(sessionId);
 
         if (status != ISurvivalBet.SessionStatus.Active) return;
 
@@ -292,7 +292,7 @@ contract SurvivalBetHandler is Test {
         if (nextSessionId == 0) return;
 
         uint256 sessionId = bound(sessionSeed, 0, nextSessionId - 1);
-        (, ISurvivalBet.SessionStatus status,,,,,,) = survivalBet.getSession(sessionId);
+        (, ISurvivalBet.SessionStatus status,,,,,,,) = survivalBet.getSession(sessionId);
 
         if (status != ISurvivalBet.SessionStatus.Settled) return;
 
@@ -311,7 +311,7 @@ contract SurvivalBetHandler is Test {
         if (nextSessionId == 0) return;
 
         uint256 sessionId = bound(sessionSeed, 0, nextSessionId - 1);
-        (address player, ISurvivalBet.SessionStatus status,,,,, bool playerBonusClaimed, uint256 playerBonusAmount) =
+        (address player, ISurvivalBet.SessionStatus status,,,,, bool playerBonusClaimed, uint256 playerBonusAmount,) =
             survivalBet.getSession(sessionId);
 
         if (status != ISurvivalBet.SessionStatus.Settled) return;

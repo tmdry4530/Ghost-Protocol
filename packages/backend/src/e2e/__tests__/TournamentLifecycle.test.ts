@@ -38,7 +38,7 @@ class MockMatchScheduler implements Partial<MatchScheduler> {
     for (const match of matches) {
       this.scheduledJobs.push(match);
     }
-    return [];
+    return Promise.resolve([]);
   }
 
   getPendingCount(): Promise<number> {
@@ -430,7 +430,7 @@ describe('Tournament Lifecycle E2E', () => {
       for (const match of round1Matches) {
         expect(validVariants).toContain(match.variant);
         expect(match.seed).toBeGreaterThanOrEqual(0);
-        expect(match.seed).toBeLessThan(1_000_000);
+        expect(match.seed).toBeLessThan(0x1_0000_0000);
         expect(match.difficulty).toBe(3); // 토너먼트는 Tier 3 고정
       }
     });

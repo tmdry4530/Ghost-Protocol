@@ -1,0 +1,31 @@
+name: ghost-protocol-indexer
+description: Ghost Protocol 온체인 이벤트 인덱서
+
+networks:
+  - id: 10143
+    rpc_config:
+      url: https://testnet-rpc.monad.xyz
+    start_block: 0
+    contracts:
+      - name: GhostArena
+        address: "0x225e52C760F157e332e259E82F41a67Ecd1b9520"
+        handler: src/handlers/ghostArena.ts
+        events:
+          - event: AgentRegistered(address indexed agent, string name, uint256 agentId)
+          - event: TournamentCreated(uint256 indexed tournamentId, uint256 startTime)
+          - event: MatchResultRecorded(uint256 indexed matchId, address winner, bytes32 stateHash)
+
+      - name: WagerPool
+        address: "0xb39173Ca23d5c6e42c4d25Ad388D602AC57e9D1C"
+        handler: src/handlers/wagerPool.ts
+        events:
+          - event: BetPlaced(uint256 indexed matchId, address indexed bettor, address indexed agent, uint256 amount)
+          - event: BetSettled(uint256 indexed matchId, address indexed bettor, uint256 payout)
+          - event: PoolCreated(uint256 indexed matchId, uint256 lockTime)
+
+      - name: SurvivalBet
+        address: "0x1af65f774f358baf9367C8bC814a4AA842588DE8"
+        handler: src/handlers/survivalBet.ts
+        events:
+          - event: PredictionPlaced(uint256 indexed sessionId, address indexed bettor, uint8 predictedRound, uint256 amount)
+          - event: SessionSettled(uint256 indexed sessionId, uint8 eliminationRound, uint256 totalPool)

@@ -5,7 +5,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDashboardStore } from '@/stores/dashboardStore';
-import { useLobbySocket } from '@/hooks/useLobbySocket';
 
 /** 시간 경과 포맷 */
 function formatTimeAgo(timestamp: number): string {
@@ -33,9 +32,6 @@ function getFeedIcon(type: string): string {
  */
 export function Dashboard(): React.JSX.Element {
   const { matches, tournaments, feedItems, addFeedItem } = useDashboardStore();
-
-  // 로비 WebSocket 연결
-  useLobbySocket();
 
   // 에이전트 이름 맵 (API에서 가져온 데이터 캐시)
   const [agentNames, setAgentNames] = useState<Map<string, string>>(new Map());

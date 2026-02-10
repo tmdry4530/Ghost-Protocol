@@ -3,14 +3,18 @@ pragma solidity ^0.8.24;
 
 import "./interfaces/ISurvivalBet.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /// @title SurvivalBet
 /// @notice 서바이벌 모드 예측 시장 컨트랙트 — 플레이어의 탈락 라운드를 예측하고 정확도 기반 가중 정산 수행
 /// @dev 라운드 기반 예측 배팅, 정확도 가중 배당, 생존 보너스 및 고점 보너스 지원
-contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
+contract SurvivalBet is ISurvivalBet, ReentrancyGuard, Pausable {
     // ──────────────────────────────────────────────
     //  커스텀 에러
     // ──────────────────────────────────────────────
+
+    /// @notice 소유자만 호출 가능한 함수에 다른 주소가 접근했을 때
+    error OnlyOwner();
 
     /// @notice 아레나 매니저만 호출 가능한 함수에 다른 주소가 접근했을 때
     error OnlyArenaManager();
@@ -45,6 +49,9 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
     /// @notice 수령 가능한 보너스가 없는 경우
     error NoBonusAvailable();
 
+    /// @notice 보너스 자금이 부족한 경우
+    error InsufficientBonusFunding();
+
     // ──────────────────────────────────────────────
     //  구조체
     // ──────────────────────────────────────────────
@@ -59,7 +66,8 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
         uint8 eliminationRound; // 탈락 라운드 (정산 후 설정)
         uint256 totalWeightedShares; // 가중 지분 총합 (정산 시 계산)
         bool playerBonusClaimed; // 플레이어 보너스 수령 여부
-        uint256 playerBonusAmount; // 플레이어 보너스 금액 (정산 시 계산)
+        uint256 playerBonusAmount; // 서바이벌 보너스 금액 (풀에서 차감)
+        uint256 highScoreBonusAmount; // 고점 보너스 금액 (외부 자금, 풀에서 미차감)
     }
 
     /// @notice 개별 예측 데이터 구조체
@@ -110,6 +118,12 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
     //  수정자
     // ──────────────────────────────────────────────
 
+    /// @dev 소유자 전용 수정자
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert OnlyOwner();
+        _;
+    }
+
     /// @dev 아레나 매니저 전용 수정자
     modifier onlyArenaManager() {
         if (msg.sender != arenaManager) revert OnlyArenaManager();
@@ -136,7 +150,7 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
     /// @notice 새로운 배팅 세션 생성
     /// @param player 대상 플레이어 주소
     /// @return sessionId 생성된 세션 ID
-    function createSession(address player) external override onlyArenaManager returns (uint256) {
+    function createSession(address player) external override onlyArenaManager whenNotPaused returns (uint256) {
         uint256 sessionId = nextSessionId++;
 
         sessions[sessionId] = Session({
@@ -147,7 +161,8 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
             eliminationRound: 0,
             totalWeightedShares: 0,
             playerBonusClaimed: false,
-            playerBonusAmount: 0
+            playerBonusAmount: 0,
+            highScoreBonusAmount: 0
         });
 
         return sessionId;
@@ -157,7 +172,7 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
     /// @dev 세션이 Betting 상태일 때만 가능하며, 한 세션당 한 번만 예측 가능
     /// @param sessionId 세션 ID
     /// @param predictedRound 예측 탈락 라운드 (1 이상)
-    function placePrediction(uint256 sessionId, uint8 predictedRound) external payable override {
+    function placePrediction(uint256 sessionId, uint8 predictedRound) external payable override whenNotPaused {
         Session storage session = sessions[sessionId];
 
         // 세션이 배팅 상태인지 확인
@@ -294,8 +309,8 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
         if (!success) revert TransferFailed();
     }
 
-    /// @notice 플레이어 서바이벌 보너스 수령
-    /// @dev 세션 플레이어만 호출 가능, 정산 시 산정된 보너스 금액 지급
+    /// @notice 플레이어 보너스 수령 — 서바이벌 보너스 + 고점 보너스 합산 지급
+    /// @dev 세션 플레이어만 호출 가능, 서바이벌 보너스(풀 차감)와 고점 보너스(외부 자금) 합산 지급
     /// @param sessionId 세션 ID
     function claimPlayerBonus(uint256 sessionId) external nonReentrant {
         Session storage session = sessions[sessionId];
@@ -309,23 +324,22 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
         // 이미 수령했는지 확인
         if (session.playerBonusClaimed) revert BonusAlreadyClaimed();
 
-        // 보너스 금액이 있는지 확인
-        if (session.playerBonusAmount == 0) revert NoBonusAvailable();
-
-        uint256 bonus = session.playerBonusAmount;
+        // 총 보너스 금액 확인 (서바이벌 + 고점)
+        uint256 totalBonus = session.playerBonusAmount + session.highScoreBonusAmount;
+        if (totalBonus == 0) revert NoBonusAvailable();
 
         // Effects: 수령 완료 표시
         session.playerBonusClaimed = true;
 
-        // Interactions: ETH 전송
-        (bool success,) = msg.sender.call{value: bonus}("");
+        // Interactions: ETH 전송 (서바이벌 + 고점 보너스 합산)
+        (bool success,) = msg.sender.call{value: totalBonus}("");
         if (!success) revert TransferFailed();
     }
 
     /// @notice 고점 보너스 트리거 — 아레나 매니저가 추가 보너스를 부여할 때 호출
-    /// @dev 정산된 세션에 고점 보너스를 추가로 적용
+    /// @dev 정산된 세션에 고점 보너스를 추가로 적용. 보너스 금액만큼 ETH를 전송해야 함.
     /// @param sessionId 세션 ID
-    function triggerHighScoreBonus(uint256 sessionId) external onlyArenaManager {
+    function triggerHighScoreBonus(uint256 sessionId) external payable onlyArenaManager {
         Session storage session = sessions[sessionId];
 
         // 정산 완료 상태 확인
@@ -335,7 +349,39 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
         if (session.playerBonusClaimed) revert BonusAlreadyClaimed();
 
         uint256 highScoreBonus = (session.totalPool * HIGH_SCORE_BONUS_BPS) / 10000;
-        session.playerBonusAmount += highScoreBonus;
+        if (msg.value < highScoreBonus) revert InsufficientBonusFunding();
+
+        session.highScoreBonusAmount += highScoreBonus;
+
+        // 초과 전송분 반환
+        if (msg.value > highScoreBonus) {
+            (bool refundSuccess,) = msg.sender.call{value: msg.value - highScoreBonus}("");
+            if (!refundSuccess) revert TransferFailed();
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    //  관리자 함수 (소유자 전용)
+    // ──────────────────────────────────────────────
+
+    /// @notice 아레나 매니저 주소 변경 (소유자 전용)
+    function setArenaManager(address _newManager) external onlyOwner {
+        arenaManager = _newManager;
+    }
+
+    /// @notice 트레저리 주소 변경 (소유자 전용)
+    function setTreasury(address _newTreasury) external onlyOwner {
+        treasury = _newTreasury;
+    }
+
+    /// @notice 컨트랙트 일시정지 (소유자 전용)
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice 컨트랙트 일시정지 해제 (소유자 전용)
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     // ──────────────────────────────────────────────
@@ -373,7 +419,8 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
     /// @return eliminationRound 탈락 라운드
     /// @return totalWeightedShares 가중 지분 총합
     /// @return playerBonusClaimed 플레이어 보너스 수령 여부
-    /// @return playerBonusAmount 플레이어 보너스 금액
+    /// @return playerBonusAmount 서바이벌 보너스 금액 (풀에서 차감)
+    /// @return highScoreBonusAmount 고점 보너스 금액 (외부 자금)
     function getSession(uint256 sessionId)
         external
         view
@@ -385,7 +432,8 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
             uint8 eliminationRound,
             uint256 totalWeightedShares,
             bool playerBonusClaimed,
-            uint256 playerBonusAmount
+            uint256 playerBonusAmount,
+            uint256 highScoreBonusAmount
         )
     {
         Session storage s = sessions[sessionId];
@@ -397,7 +445,8 @@ contract SurvivalBet is ISurvivalBet, ReentrancyGuard {
             s.eliminationRound,
             s.totalWeightedShares,
             s.playerBonusClaimed,
-            s.playerBonusAmount
+            s.playerBonusAmount,
+            s.highScoreBonusAmount
         );
     }
 

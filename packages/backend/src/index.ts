@@ -13,7 +13,10 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { GameLoopManager } from './game/GameLoopManager.js';
 import { SocketManager } from './websocket/SocketManager.js';
 import { createApiRouter, ApiStateStore } from './routes/api.js';
+import { agentRegistrationRouter } from './routes/agentRegistration.js';
+import { circleWalletRouter } from './routes/circleWallet.js';
 import { DemoTournamentRunner } from './orchestrator/DemoTournamentRunner.js';
+import { IndexerService } from './services/indexerService.js';
 
 /** 구조화된 로거 인스턴스 */
 const logger = pino({
@@ -73,6 +76,10 @@ function main(): void {
   const apiRouter = createApiRouter(gameLoopManager, stateStore);
   app.use('/api/v1', apiRouter);
 
+  // v2 라우트 마운트
+  app.use('/api/v1', agentRegistrationRouter);
+  app.use('/api/v1/wallet', circleWalletRouter);
+
   // 에러 핸들러 (반드시 마지막에 등록)
   app.use(errorHandler);
 
@@ -83,10 +90,18 @@ function main(): void {
     stateStore,
   );
 
+  // Envio Indexer 서비스 초기화
+  const indexerService = new IndexerService({
+    graphqlUrl: env.ENVIO_GRAPHQL_URL,
+    io,
+    pollInterval: 2000, // 2초마다 폴링
+  });
+
   // Graceful Shutdown
   const shutdown = () => {
     logger.info('서버 종료 중...');
     demoRunner.stop();
+    indexerService.stop();
     socketManager.shutdown();
     httpServer.close(() => {
       logger.info('서버 종료 완료');
@@ -102,10 +117,14 @@ function main(): void {
     logger.info(`Ghost Protocol 서버 시작: http://localhost:${env.PORT.toString()}`);
     logger.info(`WebSocket 대기 중: ws://localhost:${env.PORT.toString()}`);
     logger.info(`API: http://localhost:${env.PORT.toString()}/api/v1`);
+    logger.info(`Envio Indexer 연결: ${env.ENVIO_GRAPHQL_URL}`);
     logger.info(`에이전트 수: ${stateStore.agents.size.toString()}`);
 
     // 서버 시작 후 데모 토너먼트 자동 실행
     demoRunner.start();
+
+    // Indexer 폴링 시작
+    indexerService.start();
   });
 }
 

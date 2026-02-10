@@ -813,10 +813,55 @@ contract GhostArenaTest is Test {
         );
     }
 
-    /// @notice 잔액이 0인 상태에서 인출 시 TransferFailed 에러 발생 확인
+    /// @notice 잔액이 0인 상태에서 인출 시 NoFeesToWithdraw 에러 발생 확인
     function test_WithdrawToTreasury_RevertIf_ZeroBalance() public {
-        vm.expectRevert(GhostArena.TransferFailed.selector);
+        vm.expectRevert(GhostArena.NoFeesToWithdraw.selector);
         arena.withdrawToTreasury();
+    }
+
+    /// @notice 상금 풀과 수수료가 격리되어 상금 풀은 인출되지 않는지 확인
+    function test_WithdrawToTreasury_DoesNotWithdrawPrizePool() public {
+        // 에이전트 8명 등록 (수수료 0.08 ether 축적)
+        _registerAgents(8);
+
+        // _createTournamentWith8()이 내부에서 _registerAgents(8)을 추가 호출하므로 총 16명 등록
+        // 총 누적 수수료 = REGISTRATION_FEE * 16
+        uint256 registrationFees = REGISTRATION_FEE * 16;
+
+        // 토너먼트 생성 및 상금 풀 추가 (1 ether)
+        (uint256 tid,) = _createTournamentWith8();
+        uint256 prizeAmount = 1 ether;
+        vm.deal(address(this), prizeAmount);
+        arena.fundTournament{value: prizeAmount}(tid);
+
+        // 컨트랙트 총 잔액 = 등록 수수료 + 상금 풀
+        uint256 totalBalance = address(arena).balance;
+        assertEq(totalBalance, registrationFees + prizeAmount, unicode"총 잔액이 수수료 + 상금과 일치해야 함");
+
+        // accumulatedFees 확인
+        assertEq(arena.accumulatedFees(), registrationFees, unicode"누적 수수료가 등록 수수료와 일치해야 함");
+
+        uint256 treasuryBefore = treasury.balance;
+
+        // 트레저리로 인출
+        arena.withdrawToTreasury();
+
+        // 수수료만 인출되고 상금 풀은 남아 있어야 함
+        assertEq(
+            address(arena).balance,
+            prizeAmount,
+            unicode"인출 후 컨트랙트 잔액이 상금 풀과 일치해야 함"
+        );
+        assertEq(
+            treasury.balance - treasuryBefore,
+            registrationFees,
+            unicode"트레저리 잔액이 등록 수수료만큼 증가해야 함"
+        );
+        assertEq(arena.accumulatedFees(), 0, unicode"인출 후 누적 수수료가 0이어야 함");
+
+        // 토너먼트 상금 풀은 변경되지 않아야 함
+        (,, uint256 prizePool,,) = arena.tournaments(tid);
+        assertEq(prizePool, prizeAmount, unicode"토너먼트 상금 풀이 변경되지 않아야 함");
     }
 
     /// @notice 소유자가 아닌 주소로 인출 시 Unauthorized 에러 발생 확인
@@ -824,6 +869,132 @@ contract GhostArenaTest is Test {
         vm.prank(unauthorized);
         vm.expectRevert(IGhostArena.Unauthorized.selector);
         arena.withdrawToTreasury();
+    }
+
+    /// @notice 잔액 보호 — 컨트랙트 잔액이 수수료 + 잠긴 상금보다 부족하면 인출 불가
+    function test_WithdrawToTreasury_BalanceGuard() public {
+        // 에이전트 8명 등록 (수수료 0.08 ETH 축적)
+        address[] memory participants = _registerAgents(8);
+        vm.prank(arenaManager);
+        arena.createTournament(participants, 8);
+        uint256 tid = 0;
+
+        // 상금 풀 충전 (10 ETH)
+        uint256 prizeAmount = 10 ether;
+        vm.deal(address(this), prizeAmount);
+        arena.fundTournament{value: prizeAmount}(tid);
+
+        // accumulatedFees = 0.08 ETH, totalLockedPrizes = 10 ETH
+        // 컨트랙트 잔액 = 0.08 + 10 = 10.08 ETH
+        // 정상 상황이므로 인출이 성공해야 함
+        uint256 feesBefore = arena.accumulatedFees();
+        assertGt(feesBefore, 0, unicode"수수료가 축적되어 있어야 함");
+
+        // 정상 인출 성공 확인
+        arena.withdrawToTreasury();
+        assertEq(arena.accumulatedFees(), 0, unicode"인출 후 수수료가 0이어야 함");
+
+        // 상금 풀은 그대로 남아 있어야 함
+        assertEq(address(arena).balance, prizeAmount, unicode"상금 풀이 그대로 남아 있어야 함");
+    }
+
+    /// @notice fundTournament 호출 시 totalLockedPrizes가 올바르게 증가하는지 확인
+    function test_FundTournament_UpdatesTotalLockedPrizes() public {
+        (uint256 tid,) = _createTournamentWith8();
+
+        assertEq(arena.totalLockedPrizes(), 0, unicode"초기 잠긴 상금 총액이 0이어야 함");
+
+        // 첫 번째 충전
+        uint256 amount1 = 1 ether;
+        vm.deal(address(this), 3 ether);
+        arena.fundTournament{value: amount1}(tid);
+        assertEq(arena.totalLockedPrizes(), amount1, unicode"첫 충전 후 잠긴 상금이 1 ETH이어야 함");
+
+        // 두 번째 충전
+        uint256 amount2 = 0.5 ether;
+        arena.fundTournament{value: amount2}(tid);
+        assertEq(
+            arena.totalLockedPrizes(),
+            amount1 + amount2,
+            unicode"두 번째 충전 후 잠긴 상금이 누적되어야 함"
+        );
+    }
+
+    /// @notice claimPrize 호출 시 totalLockedPrizes가 올바르게 감소하는지 확인
+    function test_ClaimPrize_UpdatesTotalLockedPrizes() public {
+        // 토너먼트 생성 및 상금 충전
+        address[] memory participants = _registerAgents(8);
+        vm.prank(arenaManager);
+        arena.createTournament(participants, 8);
+        uint256 tid = 0;
+
+        uint256 prizeAmount = 2 ether;
+        vm.deal(address(this), prizeAmount);
+        arena.fundTournament{value: prizeAmount}(tid);
+
+        assertEq(arena.totalLockedPrizes(), prizeAmount, unicode"충전 후 잠긴 상금이 2 ETH이어야 함");
+
+        // 토너먼트 완료
+        _completeTournament(tid);
+
+        // 우승자가 상금 수령
+        address champion = arena.tournamentChampion(tid);
+        vm.prank(champion);
+        arena.claimPrize(tid);
+
+        assertEq(arena.totalLockedPrizes(), 0, unicode"상금 수령 후 잠긴 상금이 0이어야 함");
+    }
+
+    /// @notice 전체 라이프사이클에서 totalLockedPrizes의 일관성 확인
+    function test_TotalLockedPrizes_ConsistentAfterFullLifecycle() public {
+        // --- 1단계: 토너먼트 1 생성 및 상금 충전 ---
+        address[] memory p1 = _registerAgents(8);
+        vm.prank(arenaManager);
+        arena.createTournament(p1, 8);
+        uint256 tid1 = 0;
+
+        uint256 prize1 = 3 ether;
+        vm.deal(address(this), 10 ether);
+        arena.fundTournament{value: prize1}(tid1);
+        assertEq(arena.totalLockedPrizes(), prize1, unicode"토너먼트 1 충전 후 잠긴 상금 확인");
+
+        // --- 2단계: 토너먼트 2 생성 및 상금 충전 ---
+        address[] memory p2 = _registerAgents(8);
+        vm.prank(arenaManager);
+        arena.createTournament(p2, 8);
+        uint256 tid2 = 1;
+
+        uint256 prize2 = 2 ether;
+        arena.fundTournament{value: prize2}(tid2);
+        assertEq(
+            arena.totalLockedPrizes(),
+            prize1 + prize2,
+            unicode"토너먼트 2 충전 후 잠긴 상금이 합산되어야 함"
+        );
+
+        // --- 3단계: 토너먼트 1 완료 및 상금 수령 ---
+        _completeTournament(tid1);
+        address champion1 = arena.tournamentChampion(tid1);
+        vm.prank(champion1);
+        arena.claimPrize(tid1);
+
+        assertEq(
+            arena.totalLockedPrizes(),
+            prize2,
+            unicode"토너먼트 1 상금 수령 후 토너먼트 2 상금만 잠겨 있어야 함"
+        );
+
+        // --- 4단계: 토너먼트 2 완료 및 상금 수령 ---
+        _completeTournament(tid2);
+        address champion2 = arena.tournamentChampion(tid2);
+        vm.prank(champion2);
+        arena.claimPrize(tid2);
+
+        assertEq(
+            arena.totalLockedPrizes(),
+            0,
+            unicode"모든 상금 수령 후 잠긴 상금이 0이어야 함"
+        );
     }
 
     // =========================================================================
@@ -1188,5 +1359,131 @@ contract GhostArenaTest is Test {
 
         (,,,,,,, bool active_) = arena.agents(agent);
         assertTrue(active_, unicode"수수료 0일 때 무료 등록이 가능해야 함");
+    }
+
+    // =========================================================================
+    //                 13. 단위 테스트 - 외부 에이전트 등록 (Moltbook)
+    // =========================================================================
+
+    /// @notice 외부 에이전트 정상 등록 — 이벤트 emit 및 상태 저장 확인
+    function testRegisterExternalAgent() public {
+        address extAgent = makeAddr("externalAgent1");
+        string memory moltbookId = "moltbook-agent-001";
+        uint256 karma = 2500;
+        GhostArena.AgentRole role = GhostArena.AgentRole.PACMAN;
+
+        // ExternalAgentRegistered 이벤트 발생 확인
+        vm.expectEmit(true, false, false, true, address(arena));
+        emit GhostArena.ExternalAgentRegistered(extAgent, "ExtBot", moltbookId, karma, role);
+
+        vm.prank(arenaManager);
+        arena.registerExternalAgent(extAgent, "ExtBot", moltbookId, karma, role);
+
+        // 에이전트 기본 정보 확인 (Agent 구조체)
+        (
+            address owner_,
+            string memory name_,,
+            uint256 wins_,
+            uint256 losses_,
+            uint256 totalScore_,
+            uint256 reputation_,
+            bool active_
+        ) = arena.agents(extAgent);
+
+        assertEq(owner_, extAgent, unicode"외부 에이전트 소유자가 일치해야 함");
+        assertEq(name_, "ExtBot", unicode"외부 에이전트 이름이 일치해야 함");
+        assertEq(wins_, 0, unicode"초기 승수는 0이어야 함");
+        assertEq(losses_, 0, unicode"초기 패수는 0이어야 함");
+        assertEq(totalScore_, 0, unicode"초기 총점은 0이어야 함");
+        assertEq(reputation_, karma, unicode"초기 평판이 Moltbook karma와 일치해야 함");
+        assertTrue(active_, unicode"외부 에이전트가 활성 상태여야 함");
+
+        // Moltbook ID → 주소 매핑 확인
+        assertEq(
+            arena.moltbookIdToAgent(moltbookId), extAgent, unicode"moltbookIdToAgent 매핑이 올바르게 저장되어야 함"
+        );
+
+        // 역할 매핑 확인
+        assertEq(
+            uint8(arena.agentRoles(extAgent)),
+            uint8(GhostArena.AgentRole.PACMAN),
+            unicode"에이전트 역할이 PACMAN이어야 함"
+        );
+
+        // GHOST 역할로도 등록 가능 확인
+        address extAgent2 = makeAddr("externalAgent2");
+        vm.prank(arenaManager);
+        arena.registerExternalAgent(extAgent2, "GhostBot", "moltbook-agent-002", 1800, GhostArena.AgentRole.GHOST);
+
+        assertEq(
+            uint8(arena.agentRoles(extAgent2)),
+            uint8(GhostArena.AgentRole.GHOST),
+            unicode"에이전트 역할이 GHOST이어야 함"
+        );
+    }
+
+    /// @notice 중복 Moltbook ID로 등록 시 MoltbookIdAlreadyRegistered revert 확인
+    function testRegisterExternalAgent_DuplicateMoltbookId() public {
+        address extAgent1 = makeAddr("extDup1");
+        address extAgent2 = makeAddr("extDup2");
+        string memory moltbookId = "moltbook-dup-id";
+
+        // 첫 번째 등록 (성공)
+        vm.prank(arenaManager);
+        arena.registerExternalAgent(extAgent1, "Bot1", moltbookId, 1000, GhostArena.AgentRole.PACMAN);
+
+        // 동일한 moltbookId로 두 번째 등록 (실패)
+        vm.prank(arenaManager);
+        vm.expectRevert(abi.encodeWithSelector(GhostArena.MoltbookIdAlreadyRegistered.selector, moltbookId));
+        arena.registerExternalAgent(extAgent2, "Bot2", moltbookId, 2000, GhostArena.AgentRole.GHOST);
+    }
+
+    /// @notice 빈 Moltbook ID로 등록 시 InvalidMoltbookId revert 확인
+    function testRegisterExternalAgent_InvalidMoltbookId() public {
+        address extAgent = makeAddr("extInvalid");
+
+        vm.prank(arenaManager);
+        vm.expectRevert(GhostArena.InvalidMoltbookId.selector);
+        arena.registerExternalAgent(extAgent, "Bot", "", 1000, GhostArena.AgentRole.PACMAN);
+    }
+
+    /// @notice 아레나 매니저가 아닌 주소로 외부 에이전트 등록 시 Unauthorized revert 확인
+    function testRegisterExternalAgent_OnlyArenaManager() public {
+        address extAgent = makeAddr("extUnauth");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(IGhostArena.Unauthorized.selector);
+        arena.registerExternalAgent(extAgent, "Bot", "moltbook-unauth", 1000, GhostArena.AgentRole.PACMAN);
+    }
+
+    /// @notice Moltbook ID로 에이전트 주소 조회 — 등록된 ID와 미등록 ID 모두 확인
+    function testGetAgentByMoltbookId() public {
+        address extAgent = makeAddr("extLookup");
+        string memory moltbookId = "moltbook-lookup-id";
+
+        // 등록 전 조회 — address(0) 반환
+        assertEq(
+            arena.getAgentByMoltbookId(moltbookId),
+            address(0),
+            unicode"미등록 Moltbook ID는 address(0)을 반환해야 함"
+        );
+
+        // 등록
+        vm.prank(arenaManager);
+        arena.registerExternalAgent(extAgent, "LookupBot", moltbookId, 3000, GhostArena.AgentRole.GHOST);
+
+        // 등록 후 조회 — 올바른 주소 반환
+        assertEq(
+            arena.getAgentByMoltbookId(moltbookId),
+            extAgent,
+            unicode"등록된 Moltbook ID로 올바른 에이전트 주소를 반환해야 함"
+        );
+
+        // 존재하지 않는 ID 조회 — address(0) 반환
+        assertEq(
+            arena.getAgentByMoltbookId("nonexistent-id"),
+            address(0),
+            unicode"존재하지 않는 Moltbook ID는 address(0)을 반환해야 함"
+        );
     }
 }
