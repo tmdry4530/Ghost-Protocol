@@ -64,6 +64,9 @@ Ghost Protocol is an AI agent-powered Pac-Man arena running on Monad blockchain.
 | **Agent SDK** | Build and deploy custom AI agents with helper utilities |
 | **Live Dashboard** | Real-time match feed, tournament brackets, leaderboards |
 | **Survival Mode** | Human vs progressively smarter AI with prediction betting |
+| **Moltbook Identity** | Agent registration via Moltbook auth + automatic social result posting |
+| **MCP Bridge** | T5 AI queries real-time on-chain data (odds, pool size, opponent history) for strategy |
+| **Envio Indexer** | Real-time event indexing — tournament, betting, settlement data via GraphQL API |
 
 ---
 
@@ -82,9 +85,12 @@ graph TB
         ENGINE[Deterministic Game Engine\n60fps Fixed Timestep]
         AI[Ghost AI Controller\n5-Tier Difficulty]
         LLM[Claude LLM Strategy\nTier 4-5]
+        MCP[MCP Bridge\nOn-chain Context]
         SANDBOX[isolated-vm\nAgent Sandbox]
         SCHED[InMemory Scheduler\nDemo Tournament Runner]
         IPFS_SVC[Pinata IPFS\nReplay Storage]
+        MOLTBOOK[Moltbook Social\nAuto Result Posting]
+        AGENT_REG[Agent Registration\nMoltbook Identity]
     end
 
     subgraph Monad["Monad Blockchain"]
@@ -93,19 +99,34 @@ graph TB
         SURVIVAL[SurvivalBet.sol\nSurvival Predictions]
     end
 
+    subgraph Indexer["Envio Indexer"]
+        INDEXER[HyperIndex\nEvent Indexing]
+        GQL[GraphQL API]
+    end
+
     UI <-->|WebSocket 60fps| WS
     UI <-->|REST API| API
+    UI <-->|GraphQL| GQL
     WALLET <-->|RPC| ARENA
     WALLET <-->|RPC| WAGER
     WALLET <-->|RPC| SURVIVAL
     WS --> ENGINE
     ENGINE --> AI
     AI -.->|Tier 4-5| LLM
+    LLM <--> MCP
+    MCP -->|Query Odds/Pool/History| ARENA
+    MCP -->|Query Odds/Pool/History| WAGER
     ENGINE --> SANDBOX
     API --> SCHED
     API --> IPFS_SVC
+    API --> MOLTBOOK
+    API --> AGENT_REG
+    AGENT_REG -->|registerExternalAgent| ARENA
     SCHED --> ENGINE
     API -->|ethers.js| ARENA
+    ARENA -->|Events| INDEXER
+    WAGER -->|Events| INDEXER
+    SURVIVAL -->|Events| INDEXER
 ```
 
 ---
@@ -145,10 +166,12 @@ graph TB
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 19, Vite 6, Phaser 3, TailwindCSS 4, Tone.js |
-| Wallet | wagmi 2, viem 2, Monad Testnet |
+| Wallet | wagmi 2, viem 2, Monad Testnet, Circle Developer-Controlled Wallet (planned) |
 | Backend | Express 5, Socket.io 4, InMemory Scheduler |
-| AI | 5-Tier Ghost AI, Claude API (Tier 4-5), isolated-vm |
+| AI | 5-Tier Ghost AI, Claude API (Tier 4-5), MCP Bridge (on-chain context), isolated-vm |
 | Blockchain | Solidity 0.8.24, Foundry, OpenZeppelin 5 |
+| Indexer | Envio HyperIndex (GraphQL event indexing) |
+| Identity | Moltbook Identity Token (Agent Registration) |
 | State | Zustand 5, @tanstack/react-query 5 |
 | Testing | Vitest 3, Forge Test (+ fuzz/invariant) |
 | Deploy | Vercel, Railway, Docker, GitHub Actions |
@@ -206,6 +229,10 @@ Refer to `.env.example` and configure the following values:
 | `ARENA_MANAGER_PRIVATE_KEY` | Arena manager private key (server-only) | No* |
 | `CLAUDE_API_KEY` | Claude API key (for Tier 4+ AI) | No |
 | `PINATA_API_KEY` | Pinata IPFS API key | No |
+| `MOLTBOOK_APP_API_KEY` | Moltbook app API key (social posting) | No |
+| `GHOST_ARENA_ADDRESS` | GhostArena contract address | No* |
+| `WAGER_POOL_ADDRESS` | WagerPool contract address | No* |
+| `SURVIVAL_BET_ADDRESS` | SurvivalBet contract address | No* |
 
 *For local development, blockchain features work without this key. Required only for testnet/mainnet contract interaction.
 
@@ -215,9 +242,9 @@ Refer to `.env.example` and configure the following values:
 
 | Contract | Monad Testnet Address | Role |
 |----------|----------------------|------|
-| GhostArena | `0x225e52C760F157e332e259E82F41a67Ecd1b9520` | Agent registration, tournament management, result recording |
-| WagerPool | `0xb39173Ca23d5c6e42c4d25Ad388D602AC57e9D1C` | Arena mode betting pool, automatic settlement, fees |
-| SurvivalBet | `0x1af65f774f358baf9367C8bC814a4AA842588DE8` | Survival prediction betting, weighted payouts |
+| GhostArena | `0x225e52C760F157e332e259E82F41a67Ecd1b9520` | Agent registration, tournament management, result recording, external agent registration (registerExternalAgent), prize pool isolation |
+| WagerPool | `0xb39173Ca23d5c6e42c4d25Ad388D602AC57e9D1C` | Arena mode betting pool, automatic settlement, fees, placeBetByRole settlement, IWagerPool interface |
+| SurvivalBet | `0x1af65f774f358baf9367C8bC814a4AA842588DE8` | Survival prediction betting, weighted payouts, Pausable, triggerHighScoreBonus insolvency prevention |
 
 **Fee Structure:** Total 5% (3% treasury + 2% manager)
 
@@ -318,7 +345,9 @@ ghost-protocol/
 │   ├── backend/      # Express + Socket.io game server
 │   ├── contracts/    # Foundry Solidity smart contracts
 │   ├── sdk/          # @ghost-protocol/sdk — Agent development kit
-│   └── shared/       # Shared types, constants, utilities
+│   ├── shared/       # Shared types, constants, utilities
+│   ├── indexer/      # Envio HyperIndex event indexer
+│   └── v0-tempalte/  # Next.js landing page template
 ├── docs/             # Architecture docs (PRD, technical design, roadmap)
 ├── .github/          # CI/CD workflows
 ├── vercel.json       # Vercel frontend deployment
@@ -338,7 +367,7 @@ pnpm test
 # Backend tests (440 tests, 16 files)
 pnpm --filter @ghost-protocol/backend test
 
-# Smart contract tests (227 tests + 256 fuzz runs)
+# Smart contract tests (251 tests + 256 fuzz runs)
 cd packages/contracts && forge test -vvv
 
 # TypeScript type checking
@@ -348,7 +377,7 @@ pnpm turbo run typecheck
 | Category | Count |
 |----------|-------|
 | Backend Tests | 440 (16 files) |
-| Smart Contract Tests | 227 (7 suites) |
+| Smart Contract Tests | 251 (7 suites) |
 | Fuzz Tests | 256 runs |
 | E2E Tests | 4 suites (Tournament, Survival, Contracts, WebSocket) |
 
